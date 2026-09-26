@@ -1,42 +1,45 @@
-# ⚙️ Instalación y Compatibilidad
+---
+description: >-
+  On this page, you'll learn how to install most of our resources, take into
+  account that some of our systems may have special needs so revise each
+  script's docs carefully!
+---
 
-## 📥 Instalación básica
+# ⚙️ Installation & Compatibility
 
-1. Descarga el script desde tu panel de **Tebex** (Keymaster / mis compras).
-2. Descomprime la carpeta y renómbrala **exactamente** como se indica en la documentación del script (por ejemplo, `nexus_boombox`). El nombre del recurso debe coincidir o el script no arrancará.
-3. Coloca la carpeta dentro de tu carpeta `resources`.
-4. Añade `ensure nexus_xxxxx` a tu `server.cfg`, respetando el orden de dependencias si el script lo indica.
-5. Abre `config.lua` y ajusta las opciones a tu gusto (framework, idioma, sistemas de compatibilidad...).
-6. Reinicia el recurso o el servidor.
+## 📥 Universal Installation
+
+1. Download the resource from your **own** cfx.re portal.
+2. Unzip the folder and use the **unzipped** folder. **DO NOT** rename the folder's name, if so the script **won't work**.
+3. Add the unzipped folder to your `resources` folder.
+4. Add `ensure nexus_xxxxx` to your `server.cfg`, respecting the dependency order if indicated by the script.
+5. Open the script's `config.lua` and adapt it to your server's needs (framework, language, notify...).
+6. Restart the resource or server. We recommend you to restart the whole server since it ensures that the script settles correctly.
 
 {% hint style="danger" %}
-Todos nuestros scripts incluyen una comprobación del nombre del recurso al arrancar. Si la carpeta no se llama exactamente como el recurso original, el script detendrá su ejecución y mostrará un error en consola.
+All of our scripts include a resource name check on startup. If the folder is not named exactly like the original resource, the script will stop executing and display an error in the console.
 {% endhint %}
 
-## 🧩 Sistema de compatibilidad modular
+## 🧩 Modular Compatibility System
 
-Nuestros scripts no dependen de un único sistema externo: cada función crítica tiene su propia rama de configuración para que elijas la que ya usas en tu servidor, sin tocar código.
+Our resources do not enforce using an specific dependecy : every function is customizable to guarantee a personalized setup, with the least effort.
 
-| Sistema | Opciones disponibles |
-|---|---|
-| Framework | `esx`, `qbcore` |
-| Notificaciones | `nexus`, `okok`, `esx`, `mythic` |
-| TextUI | `nexus`, `okok`, `esx`, `custom` |
-| Llaves de vehículo | `nexus`, `cd_garage`, `custom`, `default` |
-| Combustible | `legacyfuel`, `custom`, `ninguno` |
-| Interacción / target | `ox_target`, `qb-target`, `draw3dtext` (propio) |
+| System    | Current pre-configured systems                  |
+| --------- | ----------------------------------------------- |
+| Framework | `esx`, `qbcore`                                 |
+| Notifys   | `nexus`, `okok`, `esx`, `mythic`                |
+| TextUI    | `nexus`, `okok`, `esx`, `custom`                |
+| Garage    | `nexus`, `cd_garage`, `custom`, `default`       |
+| Fuel      | `legacyfuel`, `custom`, `ninguno`               |
+| Target    | `ox_target`, `qb-target`, `draw3dtext(nexus's`) |
 
-Esto se controla siempre desde `config.lua`, por ejemplo:
+This is controlled by the  `config.lua`, for exmaple:
 
 ```lua
 Config.NotifySystem = 'nexus' -- 'nexus' | 'okok' | 'esx' | 'mythic'
 Config.TextUISystem = 'nexus' -- 'nexus' | 'okok' | 'esx' | 'custom'
 ```
 
-## 🧠 functions.lua y locales.lua
+## 🧠 functions.lua & locales.lua
 
-Cada script incluye un archivo `functions.lua` **fuera del escrow**, con las funciones principales ya preparadas para que las adaptes o conectes con otros recursos, además de `locales.lua` para traducir todos los textos del script sin tocar el resto del código.
-
-## 🚗 Compatibilidad con nexus_garage
-
-Si usas **nexus_garage**, todos nuestros scripts se integran automáticamente con él en cuanto lo detectan — no necesitas configurar nada adicional.
+Almost every script comes with a `functions.lua` **file unencrypted**, with the principal functions pre-configured for a seemless start (with room for customization), apart from a `locales.lua` file where lay the script's traductions (we currently support english, spanish, french, german, italian and chinease. You can add your own or edit an existing one).

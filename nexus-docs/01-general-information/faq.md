@@ -1,25 +1,17 @@
-# ❓ Preguntas Frecuentes
+# ❓ Frequently Asked Questions
 
-**P: ¿Los scripts son compatibles con ESX y QBCore?**
-R: Sí, todos nuestros scripts son compatibles con ambos frameworks de forma nativa, seleccionable desde `config.lua`.
+**Q: Are the scripts compatible with ESX & QBcore?** A: Yes,all of our resources are either standalone or fully compatible with both frameworks, just select yours in `config.lua`.
 
-**P: ¿Puedo usar mi propio sistema de notificaciones / TextUI / llaves?**
-R: Sí. Cada script incluye varias opciones de compatibilidad ya integradas. Consulta [⚙️ Instalación y Compatibilidad](instalacion.md).
+**Q: Can I use my own TextUI/Notify/Garage...System?** A: Yes. Almost every scripts comes preconfigured with the most popular systems but you can add your's in `functions.lua` .Look how to do it in [⚙️ Installation & Compatibility](instalacion.md).
 
-**P: ¿Los scripts tienen escrow?**
-R: Sí, todos los scripts de Nexus Scripts usan el sistema de escrow oficial de FiveM (cfx.re) como protección anti-filtración.
+**Q: Los scripts tienen escrow?** A: Sí, todos los scripts de Nexus Scripts usan el sistema de escrow oficial de FiveM (cfx.re) como protección anti-filtración.
 
-**P: He comprado el script pero me da un error al arrancar, ¿qué hago?**
-R: Comprueba primero que el nombre de la carpeta coincide exactamente con el nombre original del recurso — es la causa más habitual. Si el error persiste, contacta con soporte en Discord indicando el error exacto de consola.
+**Q: I bought the script but I get an error on startup, what should I do?** A: First, make sure the folder name matches the original resource name exactly — this is the most common cause. If the error persists check the script's docs and if it hasn't dissapeared contact support on Discord and provide the exact console error.
 
-**P: ¿Ofrecéis reembolsos?**
-R: Actualmente no ofrecemos devoluciones sobre compras ya entregadas, al tratarse de contenido digital. Consulta [📜 Términos y Licencia](terminos.md) para más detalle.
+**Q: Do you take returns?** A: At the moment we do not accept returns, if you have any problem or doubt feel free to reach us at our Discord. Check[📜 Terms of Service (ToS)](terminos.md) for more information.
 
-**P: ¿Puedo revender, compartir o filtrar el script?**
-R: No. Está totalmente prohibido y perseguido mediante DMCA en caso de filtración. Más detalle en [📜 Términos y Licencia](terminos.md).
+**Q: Can I resell, share or leak the script?** A: No. **It's strictly forbidden**, any leak or break of this clause will result in **inmediate ban** and a **DMCA lawsuit**. More info on [📜 Terms of Service (ToS)](terminos.md).
 
-**P: ¿Tenéis scripts gratuitos?**
-R: No, todos nuestros scripts son de pago. El soporte de los scripts adquiridos está incluido y lo gestionamos directamente nosotros.
+**Q: Are there any free scripts?** A: At the moment we don't have any free scripts, we might include some in the future. Free scripts owners are not entitled to support from our team.
 
-**P: ¿Puedo pedir una función nueva para un script?**
-R: Sí, puedes proponerla en el Discord. La valoramos para el roadmap según la demanda y la viabilidad técnica.
+**Q: Can I ask for a new feature in an existing resource?** A: Yes, you are free to share new ideas in the store's Discord. We will take them into account and if they seem promising we will try to add them when possible.

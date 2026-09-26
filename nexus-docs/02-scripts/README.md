@@ -1,22 +1,22 @@
 # 📦 Scripts
 
-Aquí tienes todos los scripts disponibles de Nexus Scripts. Todos son compatibles con **ESX** y **QBCore**, y siguen el mismo sistema modular de compatibilidad explicado en [⚙️ Instalación y Compatibilidad](../01-general-information/instalacion.md).
+Here you will find all the Nexus Scripts resources. All compatible with **ESX** y **QBCore**, and with the **Modular Compatibility System** fully integrated, see [⚙️ Instalación y Compatibilidad](../01-general-information/instalacion.md) for more info.
 
-| Script                                                 | Descripción breve                                  |
-| ------------------------------------------------------ | -------------------------------------------------- |
-| [🔊 nexus\_boombox](nexus_boombox.md)                  | Radio portátil para reproducir música en el mundo. |
-| [🎯 nexus\_bounty](/broken/pages/491SbKJPlwiJyazddocp) | Sistema de recompensas y caza de jugadores.        |
-| [📻 nexus\_carradio](nexus_carradio.md)                | Radio integrada en los vehículos.                  |
-| [🕒 nexus\_clocking](nexus_clocking.md)                | Fichaje de entrada y salida para trabajos.         |
-| [💀 nexus\_deathscreen](nexus_deathscreen.md)          | Pantalla de muerte y estado del jugador.           |
-| [🚚 nexus\_deliveryjob](nexus_deliveryjob.md)          | Trabajo de repartidor.                             |
-| [🤖 nexus\_helpcenter](nexus_helpcenter.md)            | Asistente de ayuda con IA para tu servidor.        |
-| [💼 nexus\_jobcenter](nexus_jobcenter.md)              | Centro de empleos del servidor.                    |
-| [⛏️ nexus\_minerjob](nexus_minerjob.md)                | Trabajo de minero.                                 |
-| [🧰 nexus\_multijob](nexus_multijob.md)                | Sistema de multiempleo.                            |
-| [🔔 nexus\_notify](nexus_notify.md)                    | Sistema de notificaciones propio.                  |
-| [🖥️ nexus\_TextUI](nexus_TextUI.md)                   | Sistema de TextUI propio.                          |
+| Script                                              | Short Description                                         |
+| --------------------------------------------------- | --------------------------------------------------------- |
+| [🔊 Nexus Boombox](nexus_boombox.md)                | Portable radio to play in-world music with spatial audio. |
+| [🎯 Nexus Bounty](../../02-scripts/nexus-bounty.md) | Bounty and player hunting system                          |
+| [📻 Nexus CarRadio](nexus_carradio.md)              | In-car radio system.                                      |
+| [🕒 Nexus Clocking](nexus_clocking.md)              | Clock-in and clock-out system for jobs                    |
+| [💀 Nexus DeathScreen](nexus_deathscreen.md)        | Death screen and player health status system.             |
+| [🚚 Nexus Deliveryjob](nexus_deliveryjob.md)        | Package deliverer job.                                    |
+| [🤖 Nexus Helpcenter](nexus_helpcenter.md)          | AI-powered support assistant for your server.             |
+| [💼 Nexus Jobcenter](nexus_jobcenter.md)            | Advanced server employment center                         |
+| [⛏️ Nexus Minerjob](nexus_minerjob.md)              | Miner job system.                                         |
+| [🧰 Nexus Multijob](nexus_multijob.md)              | Multijob system.                                          |
+| [🔔 Nexus Notify](nexus_notify.md)                  | Custom and optimized notify system.                       |
+| [🖥️ Nexus TextUI](nexus_TextUI.md)                 | Custom and optimized TextUI system.                       |
 
 {% hint style="info" %}
-¿Buscas un script que no está aquí? Consulta nuestro roadmap público o pregunta en el Discord.
+Looking for a non-existent resource? Check the store's roadmap or ask for it in Discord.
 {% endhint %}

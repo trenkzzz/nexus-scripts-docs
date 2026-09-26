@@ -1,30 +1,31 @@
-# 💬 Soporte
+# 💬 Support
 
-## 🎫 Cómo pedir ayuda
+## 🎫 How to ask for help
 
-El soporte oficial de Nexus Scripts se gestiona a través de nuestro **Discord**. Antes de abrir un ticket, te pedimos que:
+The oficial support is managed fromt the stores Discord. Please, before opening a ticket ensure you have gone through these first:
 
-1. Revises la documentación del script en cuestión.
-2. Revises la sección [❓ Preguntas Frecuentes](faq.md).
-3. Compruebes que el nombre de la carpeta y la versión del script son correctos.
+1. The resource's docs.
+2. The [❓ Frequently Asked Questions](faq.md) page.
+3. Check that the script's name is the original one "`nexus_scriptname` ".
 
-Si el problema persiste, abre un ticket indicando:
+If the problem persists, open a ticket with this info:
 
-- Nombre exacto del script y versión
-- Framework usado (ESX / QBCore)
-- Error de consola (captura o texto completo)
-- Pasos para reproducir el problema
+* Exact name of the script and version
+* Used Framework (ESX / QBCore)
+* Any console/F8 errors (preferably in a screenshot)
+* Steps to reproduce the issue
 
 {% hint style="info" %}
-Cuanta más información aportes desde el primer mensaje, más rápido podremos ayudarte.
+The more info you provide when opening a ticket, the faster we can help you.
 {% endhint %}
 
-## 🕒 Horario de soporte
+## 🕒 Support's Schedule
 
-El soporte lo gestionamos directamente desde el equipo de Nexus Scripts. Los tiempos de respuesta pueden variar según la carga de tickets.
+Support is directly managed by the Nexus Scripts team. Ticket's response time totally depends on the work volume and the time of the day/year.
 
-## 🚫 Qué no cubre el soporte
+## 🚫 What is not included in the support
 
-- Errores derivados de modificaciones no soportadas del código.
-- Incompatibilidades con recursos de terceros no documentados como compatibles.
-- Configuración general de tu servidor ajena a nuestros scripts.
+* Errors produced by incorrect modifications of the original resource.
+* Incompatibilities with third-party systems.
+* General server configuration unrelated to our scripts.
+* Free scripts problems.

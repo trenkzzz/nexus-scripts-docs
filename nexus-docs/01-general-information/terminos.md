@@ -1,27 +1,27 @@
-# 📜 Términos y Licencia
+# 📜 Terms of Service (ToS)
 
-## 🔑 Licencia de uso
+## 🔑 License
 
-Al adquirir cualquier script de Nexus Scripts obtienes una **licencia de uso** para un servidor de FiveM, no la propiedad del código fuente. Queda prohibido:
+When you purchase any script from Nexus Scripts, you receive a **license to use** it on a **single** FiveM server, not ownership of the source code. The following are strictly prohibited:
 
-- Revender, redistribuir o compartir el script, en parte o en su totalidad.
-- Eliminar o intentar evadir el sistema de escrow.
-- Publicar el código, filtrarlo o subirlo a repositorios públicos.
+* Reselling, redistributing, or sharing the script, in whole or in part.
+* Removing or attempting to bypass the escrow system.
+* Publishing the code, leaking it, or uploading it to public repositories.
 
-En caso de filtración detectada, Nexus Scripts se reserva el derecho de actuar mediante **DMCA** y cualquier otra vía legal disponible.
+Any leakage or unauthorized use, will be met with the pertinent **DMCA** claim and a report in the cfx.re ecosystem, apart from any other available method.
 
-## 💳 Compras y facturación
+## 💳 Purchases & Billing
 
-Las compras se gestionan a través de **Tebex**, aplicando sus términos y condiciones estándar además de los propios de Nexus Scripts.
+The purchases are handled via **Tebex**, applying their Terms of Service appart from the ones from Nexus Scripts.
 
-## ↩️ Devoluciones
+## ↩️ Returns
 
-Actualmente no se realizan devoluciones sobre compras ya entregadas, al tratarse de contenido digital de acceso inmediato.
+Currently, refunds are not offered on fulfilled purchases, as these are digital goods with immediate access.
 
-## 🧾 Soporte incluido
+## 🧾 Included Support
 
-El soporte técnico de los scripts adquiridos está incluido en el precio de compra y se gestiona a través del Discord oficial.
+Technical support for purchased scripts is included in the purchase price and is managed through the official Discord. (Not including free scripts)
 
-## 🤝 Colaboraciones
+## 🤝 Partnership
 
-Nexus Scripts está abierto a colaborar con otros servidores y desarrolladores. Si te interesa, contacta a través del Discord.
+Nexus Scripts is open to collaborating with other servers and developers. If you are interested, contact us through our official Discord.
