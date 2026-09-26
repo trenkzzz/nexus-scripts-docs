@@ -1,23 +1,23 @@
-# 👋 Bienvenido a Nexus Scripts
+# 👋 Welcome to Nexus Scripts's Docs
 
-¡Bienvenido a la documentación oficial de **Nexus Scripts**! Aquí encontrarás todo lo necesario para instalar, configurar y sacar el máximo partido a nuestros scripts premium para FiveM.
+Welcome to the official **Nexus Scripts** documentation! Here you'll find everything you need to install, configure, and get the most out of our premium scripts for FiveM.
 
-Nexus Scripts nace con un objetivo claro: ofrecer recursos **modulares, compatibles y bien optimizados** para servidores ESX y QBCore, con una interfaz cuidada y pensada para que tu servidor destaque.
+Nexus Scripts was born with a clear goal: to offer **modular**, **compatible**, and **well-optimized** resources for ESX and QBCore servers, featuring a sleek user interface designed to make your server stand out.
 
-### 🧭 ¿Por dónde empiezo?
+### 🧭 Where do I start?
 
-* [**📋 Requisitos Generales**](nexus-docs/01-general-information/requisitos.md) — Comprueba que tu servidor cumple lo mínimo antes de instalar cualquier script.
-* [**⚙️ Instalación y Compatibilidad**](nexus-docs/01-general-information/instalacion.md) — Cómo instalar un script y elegir los sistemas con los que quieres que funcione (notificaciones, TextUI, llaves, etc.).
-* [**📦 Lista de Scripts**](nexus-docs/02-scripts/) — Accede a la documentación de cada uno de nuestros scripts.
+* 📋 [**General Requirements**](nexus-docs/01-general-information/requisitos.md) — Make sure your server meets the minimum requirements before installing any script.
+* ⚙️ [**Installation & Compatibility**](nexus-docs/01-general-information/instalacion.md) — How to install a script and choose the systems you want it to work with (notifications, TextUI, keys, etc.).
+* 📦 [**Script List**](nexus-docs/02-scripts/) — Access the documentation for each of our scripts.
 
 {% hint style="info" %}
-**¿Necesitas ayuda?** Únete a nuestro Discord — es el canal oficial de soporte para todos los clientes de Nexus Scripts.
+**Need help?** Join our Discord — it's the official support channel for all Nexus Scripts customers.
 {% endhint %}
 
-### 🛡️ Escrow y protección
+### 🛡️ Escrow & Protection
 
-Todos los scripts de Nexus Scripts están protegidos por el sistema de escrow oficial de FiveM (cfx.re). El código fuente no es accesible directamente, pero puedes personalizar la mayoría del comportamiento a través de los archivos que quedan siempre **fuera del escrow**: `config.lua`, `functions.lua` y `locales.lua`.
+All Nexus Scripts are protected by the official FiveM escrow system (cfx.re). The source code is not directly accessible, but you can customize most of the behavior through the files that are always left unencrypted **outside the escrow**: `config.lua`, `functions.lua` and `locales.lua`.
 
-### 💜 Sobre Nexus Scripts
+### 💜 About Nexus Scripts
 
-Creamos scripts pensados para durar: modulares, fáciles de configurar y compatibles con los sistemas más usados por la comunidad (ESX, QBCore, distintos sistemas de notificaciones, TextUI, llaves de vehículos y más), para que encajen en tu servidor sin fricciones.
+We build scripts designed to last: modular, easy to configure, and compatible with the most widely used systems in the community (ESX, QBCore, various notification systems, TextUI, vehicle keys, and more), ensuring they fit seamlessly into your server without friction.

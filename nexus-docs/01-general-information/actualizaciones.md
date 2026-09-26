@@ -1,25 +1,25 @@
-# 🔄 Actualizaciones
+# 🔄 Updates
 
-## 📦 Cómo actualizar un script
+## 📦 How to update a script
 
-1. Descarga la última versión desde tu panel de **Tebex**.
-2. Haz una copia de seguridad de tu `config.lua` actual (por si añades opciones nuevas a mano).
-3. Sustituye todos los archivos del script **excepto** tu `config.lua`, `functions.lua` y `locales.lua` si los has personalizado.
-4. Revisa el registro de cambios del script por si hay opciones nuevas que quieras activar.
-5. Reinicia el recurso.
+1. Download the **latest** version through the **cfx.re portal.**
+2. Make a **security copy** of your actual version, so you can **migrate** your `config.lua` and/or other parameters.
+3. Replace **all** the files of the script and then migrate your previous customizations to the pertinent files.
+4. Check the script's changelog in case there are new options you may find interesting.
+5. If the resource/server is running, restart it so it settles correctly (We recommend **restarting the whole server** to guarantee a correct installation).
 
 {% hint style="info" %}
-Recomendamos comparar siempre tu `config.lua` con el de la nueva versión para no perderte opciones nuevas — las mantenemos documentadas en el registro de cambios de cada script.
+Revise all the new features and/or configs or the script so you can get it running **the fastest way possible**
 {% endhint %}
 
-## 🗓️ Frecuencia de actualizaciones
+## 🗓️ Updates Frequency
 
-Publicamos actualizaciones y scripts nuevos de forma regular. El roadmap público de Nexus Scripts está disponible para que veas en qué estamos trabajando y qué llegará próximamente.
+We try to publish updates and new scripts frequently but the updates/new developments volume totally depends on how occupied are we. The public Nexus Scripts roadmap is available for you to see what we're working on and what's coming soon.
 
-## 🏷️ Versionado
+## 🏷️ Changelog
 
-Usamos versionado semántico simple (`MAJOR.MINOR.PATCH`):
+We use simple semantic versioning (`MAJOR.MINOR.PATCH`):
 
-- **MAJOR** — Cambios importantes que pueden requerir reconfiguración.
-- **MINOR** — Funcionalidades nuevas, compatibles con versiones anteriores.
-- **PATCH** — Correcciones de errores.
+* **MAJOR** — Major changes that may require reconfiguration.
+* **MINOR** — New features, backward-compatible with previous versions.
+* **PATCH** — Bug fixes.
