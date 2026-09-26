@@ -1,6 +1,6 @@
-# Table of contents
+# ⬆️ What to expect
 
-* [👋 Bienvenida](README.md)
+* [👋 Bienvenida](../)
 
 ## Información General
 
@@ -13,16 +13,16 @@
 
 ## Scripts
 
-* [📦 Lista de Scripts](02-scripts/README.md)
-* [🔊 nexus_boombox](02-scripts/nexus_boombox.md)
-* [🎯 nexus_bounty](02-scripts/nexus_bounty.md)
-* [📻 nexus_carradio](02-scripts/nexus_carradio.md)
-* [🕒 nexus_clocking](02-scripts/nexus_clocking.md)
-* [💀 nexus_deathscreen](02-scripts/nexus_deathscreen.md)
-* [🚚 nexus_deliveryjob](02-scripts/nexus_deliveryjob.md)
-* [🤖 nexus_helpcenter](02-scripts/nexus_helpcenter.md)
-* [💼 nexus_jobcenter](02-scripts/nexus_jobcenter.md)
-* [⛏️ nexus_minerjob](02-scripts/nexus_minerjob.md)
-* [🧰 nexus_multijob](02-scripts/nexus_multijob.md)
-* [🔔 nexus_notify](02-scripts/nexus_notify.md)
-* [🖥️ nexus_TextUI](02-scripts/nexus_TextUI.md)
+* [📦 Lista de Scripts](02-scripts/)
+* [🔊 nexus\_boombox](02-scripts/nexus_boombox.md)
+* [🎯 nexus\_bounty](/broken/pages/491SbKJPlwiJyazddocp)
+* [📻 nexus\_carradio](02-scripts/nexus_carradio.md)
+* [🕒 nexus\_clocking](02-scripts/nexus_clocking.md)
+* [💀 nexus\_deathscreen](02-scripts/nexus_deathscreen.md)
+* [🚚 nexus\_deliveryjob](02-scripts/nexus_deliveryjob.md)
+* [🤖 nexus\_helpcenter](02-scripts/nexus_helpcenter.md)
+* [💼 nexus\_jobcenter](02-scripts/nexus_jobcenter.md)
+* [⛏️ nexus\_minerjob](02-scripts/nexus_minerjob.md)
+* [🧰 nexus\_multijob](02-scripts/nexus_multijob.md)
+* [🔔 nexus\_notify](02-scripts/nexus_notify.md)
+* [🖥️ nexus\_TextUI](02-scripts/nexus_TextUI.md)
