@@ -1,201 +1,189 @@
 # 🎯 Nexus Bounty
 
-Sistema de recompensas y caza de jugadores para tu servidor FiveM, con una app tipo "tablet" totalmente personalizada (NUI propia) y contratos tanto contra jugadores (PVP) como contra NPCs (PVE).
+A bounty and player hunting system for your FiveM server, featuring a fully custom tablet-style app (custom NUI) and contracts targeting both players (PvP) and NPCs (PvE).
 
-## 📝 Descripción
+## 📝 Description
 
-**nexus\_bounty** añade a tu servidor un sistema de recompensas completo: cualquier jugador puede poner precio a la cabeza de otro (o de la policía, en contratos exclusivos para agentes) mediante una tablet in-game con una interfaz moderna y personalizada.
+**Nexus Bounty** brings a complete bounty system to your server: any player can place a hit on another (or on law enforcement through exclusive police contracts) using an in-game tablet featuring a modern, custom interface.
 
-El script gestiona automáticamente la búsqueda del objetivo (esté conectado o no), el cobro y descuento del dinero, el marcado del objetivo en el mapa cuando un cazador acepta el contrato, el pago al cazarrecompensas cuando el objetivo es eliminado y una clasificación global de los mejores cazadores del servidor.
+The script automatically handles target tracking (whether the player is online or offline), payment deductions, target blip positioning on the map once a hunter accepts the contract, payouts upon target elimination, and a global leaderboard ranking the server's top bounty hunters.
 
-Además, incluye un sistema paralelo de contratos contra NPCs (PVE), configurable por plantillas, para que siempre haya recompensas disponibles aunque no haya suficientes jugadores conectados.
+Additionally, it features a parallel NPC contract system (PvE), fully configurable via templates, ensuring available bounties at all times even during low player counts.
 
-## ✨ Características
+## ✨ Features
 
-* **Contratos PVP**: cualquier jugador puede poner una recompensa sobre otro jugador, esté online o no.
-* **Contratos policiales**: un tipo de contrato exclusivo que solo pueden crear (y aceptar) miembros del cuerpo de policía.
-* **Contratos PVE (NPC)**: recompensas contra objetivos NPC generados a partir de plantillas configurables (modelo, ubicación, probabilidad de policía/agresividad, monto).
-* **Tablet NUI propia**: interfaz completa hecha a medida (no un menú genérico) con pantalla de inicio, creación de contrato, contratos activos, panel personal y clasificación.
-* **Tracking del objetivo**: al aceptar un contrato, el cazador recibe un blip del objetivo cuando se encuentra dentro de la distancia configurada, con duración y cooldown ajustables.
-* **Panel personal ("Mi Panel")**: gestiona tus propios contratos creados y los que has aceptado, con opción de editar la información/imagen o cancelarlos (con devolución del dinero).
-* **Clasificación global**: leaderboard con los cazarrecompensas con más contratos completados y más dinero ganado.
-* **Expiración automática**: los contratos caducan solos pasado el tiempo configurado y se limpian de la base de datos sin intervención manual.
-* **Estadísticas en vivo en el homescreen**: número de jugadores online y contratos activos en el propio menú principal de la tablet.
-* **Sistema de pruebas integrado**: comando para generar un NPC de prueba y validar el flujo completo de contrato sin tener que esperar a un contrato real (solo con `Config.DebugMode` activo).
-* **Compatible con ESX y QBCore**, seleccionable desde `Config.Framework`.
-* **Notificaciones personalizables de forma nativa** vía `functions.lua` (ver la página _Personalización de Notificaciones_).
+* **PvP Contracts**: Any player can place a bounty on another player, whether they are online or offline.
+* **Police Contracts**: An exclusive contract type that can only be created (and accepted) by members of the police department
+* **PvE (NPC) Contracts**: Bounties targeting NPC objectives generated from configurable templates (model, location, police involvement/aggression chance, reward amount).
+* **Custom NUI Tablet**: A fully tailored, custom-built interface (not a generic menu) featuring a home screen, contract creation tab, active contracts list, personal dashboard, and leaderboard.
+* **Target Tracking**: Upon accepting a contract, the hunter receives a target blip on the map once within the configured range, complete with adjustable duration and cooldown settings
+* **Personal Dashboard ("My Dashboard")**: Manage your active contracts and created bounties, with options to edit contract details/images or cancel them (with automated fee refunds)
+* **Global Leaderboard**: Leaderboard tracking the top bounty hunters by completed contracts and total earnings.
+* **Automatic Expiration**: Contracts automatically expire after the configured duration and are wiped from the database without requiring manual intervention.
+* **Live Home Screen Stats**: Real-time metrics displaying online player counts and active contracts right on the tablet's home screen.
+* **Integrated Testing System**: Included command to spawn a test NPC to validate the full contract workflow without waiting for a live target (active when `Config.DebugMode` is enabled).
+* **Framework Compatible**: Native support for both ESX and QBCore, selectable directly via `Config.Framework`.
 
-## 📋 Requisitos
+## 📋 Dependencies
 
-* **Framework**: ESX o QBCore (se elige en `Config.Framework`).
-* **Base de datos MySQL** con el wrapper `MySQL.Async` disponible (proporcionado por `mysql-async` u `oxmysql` con su capa de compatibilidad). El script depende directamente de `@mysql-async/lib/MySQL.lua`.
-* Un job de policía correctamente configurado en tu framework si vas a usar los contratos de tipo "Policial".
+* **Framework**: ESX or QBCore (selected on `Config.Framework`).
+* **MySQL database** with the `MySQL.Async` wrapper available (provided by `mysql-async` or `oxmysql` via its compatibility layer). The script directly depends on `@mysql-async/lib/MySQL.lua`.
+* A properly configured **police job** within your framework if you plan to use "Police" type contracts.
 
-## ⚙️ Instalación
+## ⚙️ Installation
 
 {% stepper %}
 {% step %}
-### Descarga y descomprime el recurso
+### Download and Unzip the resource
 
-Descarga y descomprime la carpeta `nexus_bounty` en tu carpeta `resources`.
+Dowload (from the cfx.re portal) and extract the resource's folder and add it to your  `resources` folder.
 {% endstep %}
 
 {% step %}
-### Importa la base de datos
+### Import the database
 
-Importa el archivo `nexus_bounty.sql` en tu base de datos. Esto crea las tablas `bounties_active` y `bounty_leaderboard`.
+Import the `nexus_bounty.sql` file into your database. Creating the `bounties_active` and `bounty_leaderboard` tables.
 {% endstep %}
 
 {% step %}
-### Configura el orden de inicio
+### Correct `server.cfg` positioning
 
-Asegúrate de que tu recurso de MySQL (`mysql-async` u `oxmysql`) se inicia **antes** que `nexus_bounty`.
+Make sure your MySQL resource (`mysql-async` or `oxmysql`) is initialized before `nexus_bounty`.
 {% endstep %}
 
 {% step %}
-### Añade el recurso al servidor
+### Add the resource to your server
 
-Añade a tu `server.cfg`:
+Add it to your `server.cfg`:
 
 ```cfg
+ensure "your MySQL resource"
+--THEN you add nexus_bounty
 ensure nexus_bounty
 ```
 {% endstep %}
 
 {% step %}
-### Configura el framework
+### Adapt the script to your server needs
 
-Abre `shared/config.lua` y ajusta al menos `Config.Framework` según tu servidor (ver la página _Configuración_).
+Take a look of the `config.lua` and customize it to your needs.
 {% endstep %}
 
 {% step %}
-### Reinicia el recurso o el servidor
+### Restart the resource/server
 
-Reinicia el recurso o el servidor.
+Restart the resource or the server. We reccommend restarting the whole server.
 {% endstep %}
 
 {% step %}
-### Abre la tablet
+### Start using your new script
 
-Usa el comando configurado en `Config.OpenCommand` (por defecto `/recompensas`) para abrir la tablet.
+Use the `Config.OpenCommand` (by default `/recompensas`) to open the tablet.
 {% endstep %}
 {% endstepper %}
 
-## 🔧 Configuración
+## 🔧 Configuration
 
-Toda la configuración vive en `shared/config.lua`:
+Every possible config resides in `shared/config.lua`:
 
-| Opción                            | Descripción                                                                                                                                                                 |
-| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Config.Framework`                | `"ESX"` o `"QBCore"`.                                                                                                                                                       |
-| `Config.DebugMode`                | Activa logs por consola y el comando `/test_bounty_npc` para probar el flujo completo sin esperar a un contrato real. Recomendado **desactivarlo** (`false`) en producción. |
-| `Config.OpenCommand`              | Comando para abrir la tablet (por defecto `recompensas`).                                                                                                                   |
-| `Config.PoliceJobName`            | Nombre del job de policía en tu base de datos/framework, usado para los contratos de tipo "Policial".                                                                       |
-| `Config.UseApproximateNameSearch` | Reservado para una futura búsqueda exacta/aproximada del objetivo por nombre.                                                                                               |
-| `Config.PVP.Enabled`              | Activa o desactiva los contratos contra jugadores.                                                                                                                          |
-| `Config.PVP.MinBountyAmount`      | Monto mínimo permitido al crear un contrato.                                                                                                                                |
-| `Config.PVP.Durations`            | Lista de duraciones disponibles en el desplegable de la tablet.                                                                                                             |
-| `Config.PVP.EnableTracking`       | Activa el blip de seguimiento del objetivo tras aceptar un contrato.                                                                                                        |
-| `Config.PVP.BlipRevealDistance`   | Distancia (en unidades del juego) a la que aparece el blip del objetivo.                                                                                                    |
-| `Config.PVP.BlipDuration`         | Milisegundos que el blip permanece visible cada vez que se revela.                                                                                                          |
-| `Config.PVE.Enabled`              | Activa o desactiva los contratos contra NPCs.                                                                                                                               |
-| `Config.PVE.MaxActiveNPCBounties` | Límite de contratos PVE activos a la vez.                                                                                                                                   |
-| `Config.PVE.NPCTemplates`         | Plantillas de NPCs disponibles para contratos PVE (modelo, monto, ubicaciones, probabilidades).                                                                             |
-| `Config.Locales`                  | Todos los textos y notificaciones del script, listos para traducir.                                                                                                         |
+| Config                            | Description                                                                                                                                                                                                                             |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Config.Framework`                | `"ESX"` or `"QBCore"`.                                                                                                                                                                                                                  |
+| `Config.DebugMode`                | Enables detailed console logging and unlocks the `/test_bounty_npc` command to test the complete contract workflow without waiting for a live target. **It is strongly recommended** to set this to `false` in production environments. |
+| `Config.OpenCommand`              | Command used to open the tablet interface (default: `recompensas`).                                                                                                                                                                     |
+| `Config.PoliceJobName`            | The police job name defined in your framework database, used to validate access for "Police" category contracts.                                                                                                                        |
+| `Config.UseApproximateNameSearch` | Reservado para una futura búsqueda exacta/aproximada del objetivo por nombre.                                                                                                                                                           |
+| `Config.PVP.Enabled`              | Enables or disables PvP contracts targeting other players.                                                                                                                                                                              |
+| `Config.PVP.MinBountyAmount`      | Minimum permited bounty amount.                                                                                                                                                                                                         |
+| `Config.PVP.Durations`            | Available bounty durations list.                                                                                                                                                                                                        |
+| `Config.PVP.EnableTracking`       | Enables the target tracking blip on the map once a contract is accepted.                                                                                                                                                                |
+| `Config.PVP.BlipRevealDistance`   | The distance (in game units/meters) within which the target blip becomes visible on the map.                                                                                                                                            |
+| `Config.PVP.BlipDuration`         | The duration in milliseconds that the target blip remains visible on the map each time it is revealed.                                                                                                                                  |
+| `Config.PVE.Enabled`              | Enables or disables PvE contracts targeting NPCs.                                                                                                                                                                                       |
+| `Config.PVE.MaxActiveNPCBounties` | Active bounty contracts maximum number.                                                                                                                                                                                                 |
+| `Config.PVE.NPCTemplates`         | Available NPC templates for PvE contracts (including model, reward amount, locations, and probabilities).                                                                                                                               |
+| `Config.Locales`                  | Contains all script text, labels, and notification strings, ready for localization and translation.                                                                                                                                     |
 
 {% hint style="info" %}
-Recuerda añadir también `Config.NotifySystem` (ver la siguiente página) para elegir tu sistema de notificaciones.
+Be sure to also set `Config.NotifySystem` (see the following page) to select your preferred notification system.
 {% endhint %}
 
-## 🔗 Compatibilidad
+## 🔗 Compatibility
 
-* **Frameworks**: ESX y QBCore, sin necesidad de tocar el código principal — solo cambia `Config.Framework`.
-* **Base de datos**: cualquier wrapper compatible con la sintaxis `MySQL.Async` (mysql-async / oxmysql).
-* **Notificaciones**: nexus\_notify, okokNotify, mythic\_notify, o las notificaciones nativas de ESX/QBCore, seleccionable en `functions.lua` sin tocar el código protegido (ver la página siguiente).
-* El script **no depende** de ningún sistema de TextUI, target, llaves de vehículo ni combustible: la tablet es una NUI propia y las recompensas se resuelven con eventos de framework estándar (dinero y muerte del jugador).
+* **Frameworks**: ESX and QBCore, with no need to dive into the code — just select it in  `Config.Framework`.
+* **Database**: any wrapper comaptible with `MySQL.Async` (mysql-async / oxmysql).
+* **Notifys**: nexus\_notify, okokNotify, mythic\_notify,or the natives from ESX/QBCore, selectable in `functions.lua` without modifying the protected code (see the following page).
+* The script does not depend on any external TextUI or target system: the tablet features a standalone NUI interface, and contract rewards are handled directly through standard framework events (player death and payout processing).
 
-## 💻 Personalización de notificaciones (functions.lua)
+## 💻 Notifys personalization (functions.lua)
 
-`functions.lua` viaja fuera del escrow para que puedas conectar el script con el sistema de notificaciones que ya uses en tu servidor, sin tocar el código protegido.
+The `functions.lua` file is provided unencrypted outside of the escrow system, allowing you to integrate the script with your server's existing notification system without modifying any protected code.
 
-Solo tienes que añadir en `shared/config.lua`:
+Just need to add it to `shared/config.lua`:
 
 ```lua
 Config.NotifySystem = 'esx' -- 'nexus', 'okok', 'esx', 'qb', 'mythic', 'custom'
 ```
 
-Sistemas soportados de forma nativa: `nexus_notify`, `okokNotify`, `mythic_notify`, las notificaciones propias de ESX y de QBCore, o `'custom'` para conectar cualquier otro sistema editando directamente el bloque correspondiente en `functions.lua`.
+Natively supported systems: `nexus_notify`, `okokNotify`, `mythic_notify`, native ESX notifications, native QBCore notifications, or `'custom'` to connect any other notification resource by editing its designated block directly in `functions.lua`.
 
-Los textos de `Config.Locales` incluyen prefijos de color nativos de GTA (`~r~`, `~g~`, `~o~`...). `functions.lua` los detecta automáticamente y los traduce a un tipo (`error`, `success`, `warning`, `info`) para que se muestren correctamente incluso en sistemas de notificación que no interpretan esos códigos.
+The string values in `Config.Locales` include native GTA color codes (`~r~`, `~g~`, `~o~`, etc.). `functions.lua` automatically detects these prefixes and maps them to standard notification types (`error`, `success`, `warning`, `info`), ensuring they display correctly even on custom notification systems that do not parse GTA color codes natively.
 
-## 🆚 Contratos PVP vs. PVE
+## 🆚 PvP Contracts vs. PvE Contracts
 
-nexus\_bounty combina dos tipos de contrato en el mismo sistema:
+Nexus Bouunty combines two types of contracts within the same system:
 
-* **PVP (contra jugadores)**: se crean indicando un nombre (o parte de él); el script busca primero entre los jugadores conectados y, si no encuentra coincidencia, en la base de datos. Pueden ser civiles o, si el creador es policía, de tipo "Policial" (solo aceptables por agentes).
-* **PVE (contra NPCs)**: se generan a partir de las plantillas de `Config.PVE.NPCTemplates`, con su propio modelo, ubicación y probabilidades. Sirven para que siempre haya contratos disponibles, aunque no haya suficientes jugadores conectados para generar contratos PVP.
+* **PvP (Player vs. Player)**: Created by entering a target's full or partial name. The script first searches active online players and falls back to searching the database if no online match is found. Contracts can be issued standard (civilian) or marked as "Police" contracts if created by an officer (restricting acceptance strictly to police officers).
+* **PvE (Player vs. Environment)**: Generated from the templates defined in `Config.PVE.NPCTemplates`, specifying model, location, and spawn probabilities. These ensure contracts are continuously available, even when player counts are low or PvP activity is quiet.
 
-Ambos tipos comparten el mismo flujo de aceptación, tracking, cobro y clasificación.
+Both types share the exact same flow for contract acceptance, tracking, reward collection, and leaderboard classification.
 
-## ❓ Preguntas frecuentes
+## ❓ FAQ
 
 {% hint style="info" %}
-**Antes de abrir un ticket de soporte:**
+**Before opening a ticket:**
 
-* Revisa que el nombre de la carpeta del recurso sea exactamente `nexus_bounty`.
-* Comprueba que estás usando la última versión del script.
-* Repasa esta página de preguntas frecuentes.
+* Make sure the resources name is exactly `nexus_bounty`.
+* Make sure you are using the latest version of the resource.
+* Revise this FAQ page.
 {% endhint %}
 
 <details>
 
-<summary>¿Qué pasa si el objetivo se desconecta mientras estoy siguiéndolo?</summary>
+<summary>What happens if the objetive disconnects while being hunted?</summary>
 
-El tracking se detiene automáticamente y el blip desaparece hasta que el objetivo vuelva a conectarse.
-
-</details>
-
-<details>
-
-<summary>¿Puedo poner una recompensa sobre un jugador que está offline?</summary>
-
-Sí. Si no se encuentra entre los jugadores conectados, el script busca la coincidencia en la base de datos.
+The tracking system and blip dissappears until the objetive connects again.
 
 </details>
 
 <details>
 
-<summary>¿Qué pasa si un contrato expira sin que nadie lo complete?</summary>
+<summary>Can i set a bounty on an offline player?</summary>
 
-Se elimina automáticamente de la base de datos y de la lista de contratos activos; no hay devolución del dinero al creador.
-
-</details>
-
-<details>
-
-<summary>¿Puedo cancelar un contrato que he creado?</summary>
-
-Sí, desde "Mi Panel" puedes eliminar tus propios contratos activos; el dinero se te devuelve automáticamente.
+Yes. if the desired player is not online, the script searches for their data in the database.
 
 </details>
 
 <details>
 
-<summary>¿Qué información debo incluir si abro un ticket?</summary>
+<summary>What happens if a bounty is not accepted by anyone?</summary>
 
-Nombre exacto del script y versión, framework usado (ESX/QBCore), el error tal cual aparece en consola y los pasos para reproducirlo.
+It's removed from the active bounties list and from the database; no return is made to the creator.
 
 </details>
 
-## 📋 Registro de cambios
+<details>
 
-### v1.0.0
+<summary>Can i cancel a bounty made by me?</summary>
 
-* Lanzamiento inicial de nexus\_bounty.
-* Contratos PVP (civiles y policiales) y PVE (por plantillas de NPC).
-* Tablet NUI propia con homescreen, creación de contrato, contratos activos, panel personal y clasificación.
-* Tracking del objetivo mediante blip configurable.
-* Expiración automática de contratos.
-* Sistema de pruebas con NPC bajo `Config.DebugMode`.
-* Compatibilidad nativa con ESX y QBCore.
-* Notificaciones personalizables vía `functions.lua`.
+Yes, through "Mi Panel" you can remove your created bounties; your money is returned inmediately.
+
+</details>
+
+<details>
+
+<summary>What info do i need to include in the support ticket?</summary>
+
+Exact name and version of the resource, used framework (ESX/QBCore), the EXACT error that appears in the F8/console/in-game, ideally with screenshots.
+
+</details>
