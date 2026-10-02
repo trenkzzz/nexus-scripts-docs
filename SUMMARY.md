@@ -16,7 +16,7 @@
   * [🕒 Nexus Clocking](nexus-docs/02-scripts/nexus_clocking.md)
   * [💀 Nexus DeathScreen](nexus-docs/02-scripts/nexus_deathscreen.md)
   * [🚚 Nexus Deliveryjob](nexus-docs/02-scripts/nexus_deliveryjob.md)
-  * [🅿️ Nexus Garage](nexus-docs/02-scripts/nexus_deliveryjob.md)
+  * [🅿️ Nexus Garage](nexus-docs/02-scripts/nexus_garage.md)
   * [🤖 Nexus Helpcenter](nexus-docs/02-scripts/nexus_helpcenter.md)
   * [💼 Nexus Jobcenter](nexus-docs/02-scripts/nexus_jobcenter.md)
   * [⛏️ Nexus Minerjob](nexus-docs/02-scripts/nexus_minerjob.md)
