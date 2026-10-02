@@ -9,6 +9,7 @@ Here you will find all the Nexus Scripts resources. All compatible with **ESX** 
 | [📻 Nexus CarRadio](nexus_carradio.md)              | In-car radio system.                                      |
 | [🕒 Nexus Clocking](nexus_clocking.md)              | Clock-in and clock-out system for jobs                    |
 | [💀 Nexus DeathScreen](nexus_deathscreen.md)        | Death screen and player health status system.             |
+| [🅿️ Nexus Garage](nexus_garage.md)                  | Complete and advanced garage system.                      |
 | [🚚 Nexus Deliveryjob](nexus_deliveryjob.md)        | Package deliverer job.                                    |
 | [🤖 Nexus Helpcenter](nexus_helpcenter.md)          | AI-powered support assistant for your server.             |
 | [💼 Nexus Jobcenter](nexus_jobcenter.md)            | Advanced server employment center                         |
