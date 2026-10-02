@@ -1,421 +1,495 @@
-# Nexus TextUI
+# Nexus Notify
 
-A standalone 3D world-anchored TextUI that behaves like a point-based target system: register a point once, and the resource handles distance, the far-away indicator, the prompt and the keypress for you.
+A fully client-configurable notification system for FiveM: every player drags, scales and styles their own notifications, and any resource can push them with a single export — from both client and server.
 
 ## 📝 Description
 
-Nexus TextUI is not a "show text / hide text" helper. It is a **point registry**. You register an interaction point once — world coordinates, two distances, a prompt, a key and two callbacks — and from that moment the resource owns the entire lifecycle: it measures the distance to the player, decides whether to show nothing, a floating diamond indicator or the full prompt, projects the world coordinate onto the screen every frame, scales the element down as the player gets further away, listens for the key press, and calls your handler. You never write a render loop, never call a show/hide function, and never poll a distance yourself.
+Nexus Notify replaces the stock GTA / framework notification feed with a standalone NUI notification stack that each player controls personally. A player runs `/notifymove`, drags the notification anchor anywhere on screen, scales it between 50% and 200% with a slider, optionally switches to a compact "minimalist" pill style, and saves. Those three settings are persisted **per player, per machine** using FiveM's KVP store (`SetResourceKvpInt` / `SetResourceKvpFloat`), so they survive reconnects and server restarts without any database.
 
-That design is the main difference from conventional TextUI resources. The usual pattern (`TextUI:Open(text)` inside your own `while true do` distance loop, `TextUI:Close()` when the player walks away) puts the per-frame cost in *every* resource that uses it, and every one of them re-implements the same logic slightly differently. Here all of that cost is centralised in two threads inside `nexus_TextUI`, no matter how many resources and how many points are registered. A resource that uses it typically calls `Create` once at start and `Delete` once on stop, and does nothing in between.
+Internally the resource is deliberately thin. `client.lua` owns a table of currently-displayed persistent notifications, resolves the requested notification type against `Config.Styles`, resolves the sound against `Config.Sounds`, injects the player's saved position/scale/style into the payload, and pushes a single `SendNUIMessage` with one of three actions: `show`, `update` or `hide`. All layout, animation, colour application, text markup parsing and the countdown timer live in `html/script.js`, which means adding a new notification type is a pure config change — a new entry in `Config.Styles` with an SVG filename, a hex colour, a card background and a glow string, and the NUI renders it with no code edits.
 
-Internally there are two cooperating threads with very different duty cycles. The **state thread** runs every 250 ms: it walks every registered point, computes `#(point.coords - playerCoords)`, evaluates your `canInteract` predicate, and decides which points are in view range and whether each should render as an `indicator` (inside `viewDistance` but outside `interactionDistance`) or as `text` (inside `interactionDistance`). Points that dropped out of range since the last pass get a `remove` message. The **render thread** runs at frame rate, but only while at least one point is actually visible — otherwise it sleeps 200 ms per iteration. For each visible point it calls `GetScreenCoordFromWorldCoord`, computes a scale interpolated between `0.6` and `1.0` across the gap between `viewDistance` and `interactionDistance`, and — critically — **only sends a NUI message when a coordinate or the scale actually changed by more than 0.01**, batching every changed point into a single `updatePositions` message. A standing player generates no NUI traffic at all.
+The notification stack is positional-aware: because the player can anchor notifications in any corner, the NUI recomputes `left/right/top/bottom`, `transform-origin`, `flex-direction` and `align-items` from the saved coordinates, and inserts new cards with `prepend` instead of `appendChild` when the anchor sits in the lower half of the screen. The result is that notifications always grow *away* from the screen edge regardless of where the player parked them.
 
-The NUI itself keeps a `Map` of live DOM elements keyed by interaction id, so an element is created once and then only repositioned through `style.left` / `style.top` / `style.transform`. The visual is a two-box prompt: a square key badge and a separate rounded text box beside it, both in the Nexus purple with a looping shimmer sweep, which cross-fades to a pulsing diamond indicator when the player backs away past `interactionDistance`.
+Three notification shapes are supported through the same `Alert` export: a standard timed notification with a progress bar, a **persistent** notification addressed by a caller-supplied `persistentId` that stays on screen until explicitly removed (and that *updates in place* if `Alert` is called again with the same id), and a **button** notification that renders clickable buttons which fire client events back into your own resource. The server side is a thin relay: the same `Alert` / `Remove` export names exist server-side with a leading `target` argument, validate the target, and forward over `nexus_notify:client:Alert` / `nexus_notify:client:Remove`.
 
 ## ✨ Features
 
-- **Point-based registration, not show/hide** — `Create(config)` registers a world point; the resource owns distance, visibility, rendering and input from then on. No render loop in your resource.
-- **Two-stage proximity rendering** — outside `interactionDistance` but inside `viewDistance`, the point renders as a pulsing purple diamond indicator so players can see *that* something is there; crossing `interactionDistance` cross-fades it into the full key + text prompt.
-- **Distance-based scaling** — while in the indicator band, the element is scaled between `0.6` (at `viewDistance`) and `1.0` (at `interactionDistance`) by linear interpolation, so distant points genuinely look distant.
-- **Built-in key handling** — the key named in `config.key` is polled via `IsControlJustPressed` **only** while the player is inside `interactionDistance`, and your `onInteract` callback is invoked on press. You register no keybind and no control loop.
-- **Conditional visibility (`canInteract`)** — an optional predicate re-evaluated every 250 ms. Return `false` and the point disappears entirely (indicator included) until it returns `true` again. Typical uses: job checks, "not in a vehicle", inventory checks, shop open/closed hours.
-- **Two separate boxes for key and text** — a fixed 36×36 key badge and an auto-width text box, 8px apart, each with its own entrance animation (the text box is delayed 50 ms behind the key badge) and its own offset shimmer sweep.
-- **Automatic key extraction from the prompt text** — the resource parses a `[KEY] Description` pattern out of `config.text` and uses the bracketed part to fill the key badge, falling back to `config.key` if the text does not match the pattern.
-- **Change-gated NUI traffic** — positions are only pushed when something moved more than 0.01 screen percent, and all changed points go in one batched `updatePositions` message. Standing still costs zero messages.
-- **Adaptive render loop** — the frame-rate thread short-circuits to a 200 ms sleep whenever no point is visible, so an empty or far-away server costs effectively nothing.
-- **Off-screen culling** — points behind the camera are moved to `-1000, -1000` with scale `0` rather than being drawn at a wrong position.
-- **Unlimited simultaneous points** — `activeInteractions` is a plain id-keyed table; dozens of points from many different resources coexist, each with its own distances, key, text and predicate.
-- **Fully standalone** — no framework, no database, no `ox_lib`, no target resource, no config file. It is a pure client-side resource.
-- **Built-in test commands** — `/testui` spawns a working interaction point 2 m in front of the player (view 5 m, interact 2 m, key `E`, blocked while in a vehicle) and `/deltestui` removes it, so you can verify the resource end-to-end before integrating.
-- **Smooth enter/exit transitions** — 0.3 s opacity transition on the container, a springy `cubic-bezier(0.175, 0.885, 0.32, 1.275)` scale-in on each box, a `slide-in` entrance, and a 300 ms grace period on removal so elements fade out instead of popping.
+- **Per-player position** — `/notifymove` opens a draggable anchor panel; the player drags it anywhere, and the position is stored as a percentage of screen width/height so it is resolution-independent.
+- **Per-player scale** — a slider in the move panel from `0.5` to `2.0` in `0.1` steps, applied to the whole stack through a CSS `transform: scale()`.
+- **Two visual styles** — `style-full` (icon bubble, title, message, progress bar, 320px card) and `style-mini` (compact pill, no title, no progress bar, auto width), switchable by the player with a toggle switch in the move panel when `AllowUserMinimalistToggle` is enabled.
+- **Persistence without a database** — position, scale and minimalist choice are written to FiveM KVP (`nexus_notify_pos_x`, `nexus_notify_pos_y`, `nexus_notify_scale`, `nexus_notify_minimalist`). No SQL file, no table, no framework dependency.
+- **Reset-to-default button** — optional button in the move panel (`EnableResetButton`) that pulls `DefaultPosition` / `DefaultScale` back from config through the `resetPosition` NUI callback.
+- **Fully config-driven notification types** — five shipped types (`info`, `success`, `warning`, `error`, `admin`), each with its own SVG icon file, accent colour, card background and glow. Add, edit or delete entries in `Config.Styles` and the NUI follows; an unknown type silently falls back to `info`.
+- **Server-logo mode** — set `UseLogoInsteadOfIcon = true` and every notification renders your server logo (`LogoFileName`, served from `html/`) in the icon bubble instead of the per-type SVG.
+- **Per-type sounds with a global kill switch** — `Config.Sounds` maps each type to a filename inside `html/sounds/`; `EnableSounds` and `DefaultVolume` control the feature globally, and the `playSound` argument overrides it per call (`true` = force, `false` = silence, `nil` = follow config).
+- **Entrance / exit animations** — the full card expands from a circle to a 320px rounded card (`fullIn`), the icon pops with a rotate-and-overshoot keyframe (`iconPop`), the text fades in after the expansion finishes, and the exit collapses back into a circle and shrinks to zero height (`fullOut`). The mini style has its own `pillIn` / `pillOut` pair.
+- **Progress bar** — timed notifications in full style draw a 2px bar in the notification's accent colour that fills across the configured duration. Persistent notifications and mini-style notifications draw no bar.
+- **Text markup** — the message body supports GTA-style colour tags `~r~ ~g~ ~b~ ~y~ ~o~ ~p~` closed with `~s~`, plus `**bold**` and `*italic*`, parsed in the NUI and mapped to real CSS colours.
+- **Persistent notifications with in-place update** — calling `Alert` again with the same `persistentId` sends `action = 'update'` and rewrites the title and message of the existing card instead of stacking a duplicate.
+- **Button notifications** — pass `options.buttons`; each button renders in the card, and clicking it posts back through the `buttonClick` NUI callback, which `TriggerEvent`s the event name you supplied with the params you supplied. Buttons force full style even for players using minimalist mode.
+- **Position-aware stacking** — cards are prepended instead of appended when the anchor is in the lower half of the screen, so the newest notification is always the one closest to the anchor.
+- **Built-in position-check command** — `Config.TestNotifyCommand` (default `/showpos`) fires one notification of every configured type, staggered 600ms apart, so the player can confirm where they parked the stack.
+- **Four optional debug commands** — gated behind `EnableDebugCommands`: one notification per type, show a persistent notification, hide that persistent notification, and show a two-button notification with working example handlers. All four register `chat:addSuggestion` entries.
+- **Framework-free** — no ESX, no QBCore, no database, no `ox_lib`. It runs on a bare server.
 
 ## 📋 Dependencies
 
 | Dependency | Required | Notes |
 |---|---|---|
-| Framework (ESX / QBCore) | ❌ No | Never referenced. Fully framework-agnostic — works on ESX, QBCore, QBox, vRP or a bare server. |
-| Database / MySQL | ❌ No | No persistence of any kind, no `.sql` file. |
-| `ox_lib` / `qb-target` / `ox_target` | ❌ No | This resource *replaces* the prompt layer of a target system for point-based interactions; it does not build on one. |
-| Server-side script | ❌ None | The resource is **client-only** (`client_scripts` only — there is no `server_script` at all). All registration happens on the client. |
-| Internet access on the client | ⚠️ Soft | `html/index.html` loads the Inter font from Google Fonts, and also pulls Font Awesome from a CDN (unused — see the incident log). Without internet the prompt falls back to the generic sans-serif; nothing breaks. |
+| Framework (ESX / QBCore) | ❌ No | The resource never touches a framework object. It is fully standalone. |
+| Database / MySQL | ❌ No | Player settings use FiveM KVP, not SQL. There is no `.sql` file. |
+| `ox_lib` or any UI library | ❌ No | The NUI is self-contained. |
+| Internet access on the client | ⚠️ Soft | `html/style.css` imports the Roboto font from Google Fonts. Without internet the NUI falls back to the generic sans-serif; nothing breaks. |
 
-The resource folder **must** be named exactly `nexus_TextUI` (note the capital `UI`). `client/_resource.lua` raises a hard `error()` and aborts the resource if it is not, because the export namespace `exports['nexus_TextUI']` depends on it.
+The only hard requirement is that **the resource folder must be named exactly `nexus_notify`**. Both `_resource.lua` and `client.lua`/`server.lua` validate this on start and abort if it differs, because the export namespace (`exports['nexus_notify']`) and the NUI callback URLs (`https://nexus_notify/...`, hardcoded in `html/script.js`) depend on that exact name.
 
 ## ⚙️ Installation
 
 1. **Download and extract the resource.** Download it from the cfx.re (Keymaster) portal and place the folder in your `resources` directory.
-2. **Keep the exact folder name `nexus_TextUI`** — capital `U`, capital `I`. On a case-sensitive Linux server, `nexus_textui` will fail the name check and the resource will not start.
-3. **Import no SQL.** There is nothing to import.
-4. **Add it to `server.cfg`, before every resource that will register points.** The export must exist by the time another resource calls `Create` at start:
+2. **Do not rename the folder.** It must stay `nexus_notify`. The NUI posts its callbacks to `https://nexus_notify/...`, so a renamed folder breaks the move menu, the reset button and all notification buttons.
+3. **Add it to `server.cfg`.** It has no dependencies, so it can go anywhere — but put it **before** every resource that will send notifications through it, so the export exists by the time they start:
    ```cfg
-   ensure nexus_TextUI
-   -- then the resources that register interaction points
+   ensure nexus_notify
+   -- then the resources that consume it
+   ensure nexus_bounty
    ensure nexus_multijob
-   ensure my_shops
    ```
-5. **Restart.** A full server restart is recommended.
-6. **Verify.** In game, run `/testui`. A prompt should appear ~2 m in front of you; back away and it should become a pulsing diamond, then disappear past 5 m. Press `E` while close to get the confirmation notification. Get into a vehicle and it should vanish (that is the demo's `canInteract` predicate). Run `/deltestui` to clean up.
-7. **Integrate.** Register your own points with `exports['nexus_TextUI']:Create{ ... }` from any client script. There is no config file to edit — behaviour is per-point, passed in the `Create` call.
+4. **Import no SQL.** There is nothing to import.
+5. **Adapt `config.lua`.** Set `DefaultPosition`, `DefaultScale`, `MinimalistMode` and `DefaultDuration` to the defaults you want new players to get, and review `Config.Styles` if you want your own colours.
+6. **Optional — use your own logo.** Drop your logo into `html/`, set `LogoFileName` to its filename and `UseLogoInsteadOfIcon = true`.
+7. **Optional — add your own sounds.** Drop `.wav`/`.ogg` files into `html/sounds/` and point the entries of `Config.Sounds` at them. `html/sounds/*` is already covered by the `files` block in the manifest, so no manifest edit is needed.
+8. **Restart.** A full server restart is recommended so other resources pick up the export.
+9. **Verify.** In game, run `/showpos` — you should get one notification of every configured type. Then run `/notifymove`, drag the panel, set a scale, and press **Save & Close**.
 
 ## 🔧 Configuration
 
-**Nexus TextUI ships no `config.lua`.** This is deliberate: there are no server-wide settings, because every tunable is a property of the individual interaction point and is passed into `Create`. The complete surface is therefore the `config` table of `Create(config)`:
+Everything lives in `config.lua`, which is listed in `escrow_ignore` and therefore ships unencrypted and fully editable.
+
+### Visual
 
 | Config key | Type | Default | Description |
 |---|---|---|---|
-| `id` | string | — | **Required.** Unique identifier for the point. Used as the table key in `activeInteractions`, as the DOM element id in the NUI, and as the argument to `Delete`. If omitted, `Create` prints an error and returns without registering anything. Re-using an existing id silently **overwrites** the previous point. |
-| `coords` | `vector3` | — | **Required.** The world position the prompt is anchored to. Must be a vector3 (the code uses `#(config.coords - playerCoords)` and `config.coords.x/.y/.z`), not a table of three numbers. |
-| `viewDistance` | number | — | **Required.** Outer radius in metres. Beyond this, the point renders nothing at all. Inside it but outside `interactionDistance`, the point renders as a pulsing diamond indicator. |
-| `interactionDistance` | number | — | **Required.** Inner radius in metres. Inside it, the point renders the full key + text prompt and the key is polled. Must be smaller than `viewDistance` for the indicator stage to exist and for the scaling to behave as intended. |
-| `text` | string | — | **Required.** The prompt. Write it as `'[E] Open the garage'`: the bracketed part fills the square key badge, and the rest is the description. If the string does not match the `[…]…` pattern, the badge falls back to `config.key` and the text box shows the raw string. |
-| `key` | string | — | **Required for interaction.** The key that triggers `onInteract`, given as a name from the internal `Keys` table (e.g. `'E'`, `'F'`, `'G'`, `'SPACE'`, `'F7'`). **Case-sensitive and uppercase** — `'e'` is not a valid entry and will error when the player walks into range. |
-| `onInteract` | function | `nil` | Called with no arguments when the player presses `key` inside `interactionDistance`. Omit it for a purely informational prompt. |
-| `canInteract` | function | `nil` | Optional predicate, re-evaluated every 250 ms. Return `false` to hide the point completely (indicator included); return `true` (or omit the field) to show it. Takes no arguments. |
+| `Config.DefaultPosition` | table `{x, y}` | `{ x = 99, y = 30 }` | Default anchor for players who have never moved their notifications, as a **percentage** of screen width (`x`) and height (`y`). A value above `50` is interpreted by the NUI as "anchored to the right / bottom edge", which flips the stacking direction and the transform origin. |
+| `Config.DefaultScale` | number | `1.0` | Default scale multiplier for players who have never scaled their notifications. `1.0` = 100%, `0.5` = 50%, `1.5` = 150%. The in-game slider clamps player choices to `0.5`–`2.0`. |
+| `Config.UseLogoInsteadOfIcon` | boolean | `false` | `true` renders `LogoFileName` in the icon bubble of every notification instead of the per-type SVG. `false` uses each type's `iconFile`. |
+| `Config.LogoFileName` | string | `'logo.png'` | Filename of the logo, resolved relative to `html/`. Must also be present in the manifest's `files` block (`html/logo.png` already is). |
+| `Config.EnableResetButton` | boolean | `true` | Shows the **Reset to Default** button inside the `/notifymove` panel. |
+| `Config.DefaultDuration` | number (ms) | `5000` | Duration applied when the caller does not pass a `duration`. `5000` = 5s. |
+| `Config.TestNotifyCommand` | string | `'showpos'` | Name of the always-available command that fires one notification per configured type so players can see where their stack sits. Registered without the `/`. |
+| `Config.MinimalistMode` | boolean | `false` | Default card style. `false` = full card (icon, title, message, progress bar). `true` = compact pill (icon + message only). |
+| `Config.AllowUserMinimalistToggle` | boolean | `true` | `true` shows the Minimalist Mode toggle switch inside the `/notifymove` panel so players can choose. `false` hides the toggle and also makes the `saveMinimalist` callback a no-op, locking everyone to `MinimalistMode`. |
 
-Fields the resource writes into your table — do not set them yourself:
+### Sounds
 
-| Field | Set by | Purpose |
-|---|---|---|
-| `formattedText` | `Create` | `{ key = <badge text>, text = <text-box text> }`, derived from `text`/`key`. |
-| `lastScreenState` | `Create` | `{ x, y, scale }` cache used by the render thread to skip unchanged frames. |
+| Config key | Type | Default | Description |
+|---|---|---|---|
+| `Config.EnableSounds` | boolean | `true` | Global sound switch. When `false`, no notification plays audio unless the caller explicitly passes `playSound = true`. |
+| `Config.DefaultVolume` | number | `0.7` | Volume passed to the NUI. *Note: the NUI currently constructs the `Audio` object without applying this value — see the FAQ.* |
+| `Config.Sounds` | table | see below | Maps a notification type name to a filename inside `html/sounds/`. A type with no entry here plays nothing. |
 
-Valid `key` names (the internal `Keys` table, names are exact and case-sensitive):
-
+```lua
+Config.Sounds = {
+    info    = 'opening-sound.wav',
+    success = 'opening-sound.wav',
+    warning = 'opening-sound.wav',
+    error   = 'opening-sound.wav',
+    admin   = 'opening-sound.wav',
+}
 ```
-A B C D E F G H K L M N P Q R S T U V W X Y Z
-0-9 (as "1".."9")  -  =
-F1 F2 F3 F5 F6 F7 F8 F9 F10 F11
-UpArr DownArr LeftArr RightArr   LEFT RIGHT TOP DOWN
-SPACE ENTER TAB BACKSPACE DELETE CAPS ESC
-LShift LEFTSHIFT LAlt LEFTALT LEFTCTRL RIGHTCTRL
-HOME PAGEUP PAGEDOWN  ,  .  [  ]  ~
-NUM1..NUM9   N4 N5 N6 N7 N8 N9 N+ N- NENTER
+The key must match the notification type name exactly. The value is resolved by the NUI as `sounds/<value>`, so the file must sit in `html/sounds/` and be covered by the manifest's `files { 'html/sounds/*' }` entry (it already is).
+
+### Styles
+
+| Config key | Type | Default | Description |
+|---|---|---|---|
+| `Config.Styles` | table of tables | 5 entries | The complete list of notification types. The key is the type name you pass as the `notificationType` argument. An unrecognised type falls back to `Config.Styles['info']`. |
+
+Each entry has exactly four fields:
+
+```lua
+Config.Styles = {
+    ['info'] = {
+        iconFile   = 'icons/info.svg',                 -- SVG path relative to html/
+        color      = '#3b82f6',                        -- accent: border, title, icon bubble, progress bar
+        background = 'rgba(20, 20, 26, 0.97)',         -- card background (rgba supported for transparency)
+        glow       = '0 0 15px rgba(59, 130, 246, 0.25)' -- full CSS box-shadow value
+    },
+    -- add your own:
+    ['police'] = {
+        iconFile   = 'icons/police.svg',
+        color      = '#1d4ed8',
+        background = 'rgba(10, 14, 30, 0.97)',
+        glow       = '0 0 18px rgba(29, 78, 216, 0.35)'
+    },
+}
 ```
-Note there is no `F4` and no `F12` entry.
 
-### Styling
+| Field | Type | Applied to | Notes |
+|---|---|---|---|
+| `iconFile` | string | `<img src>` in the icon bubble | Relative to `html/`. Must be inside `html/icons/` to be covered by the manifest's `files { 'html/icons/*' }` entry. Ignored when `UseLogoInsteadOfIcon = true`. |
+| `color` | string (hex) | card `border-color`, icon bubble `background-color`, title colour (full style), progress bar colour | In mini style the SVG is rendered with `filter: brightness(0)`, i.e. black on the coloured bubble, so pick a light-to-mid accent. |
+| `background` | string (CSS colour) | card `background-color` | Falls back to `rgba(20, 20, 26, 0.97)` in the NUI if omitted. |
+| `glow` | string (CSS box-shadow) | card `box-shadow` | Full shadow value, not just a colour. |
 
-With no config file, the visual identity is changed by editing `html/style.css` directly, which ships as a plain NUI asset and is never encrypted. The values worth knowing:
+Shipped types: `info` (`#3b82f6`), `success` (`#00FF00`), `warning` (`#f59e0b`), `error` (`#f43f5e`), `admin` (`#9333ea`).
 
-| What | Where | Current value |
-|---|---|---|
-| Prompt / badge colour | `.key-box`, `.text-box` `background-color` | `#a958ff` |
-| Indicator colour | `.indicator-wrapper::before` `background-color` / `border` | `#a958ff` / `#8642c9` |
-| Key badge size | `.key-box` `width`/`height` | `36px` × `36px` |
-| Text box font size | `.text-box` `font-size` | `0.85em` |
-| Gap between boxes | `.text-wrapper` `gap` | `8px` |
-| Indicator pulse speed | `@keyframes pulse` | `2s` |
-| Shimmer sweep speed | `@keyframes shimmer` | `3s` |
-| Fade in/out speed | `.interaction-point` `transition` | `0.3s` |
-| Font | `body` `font-family` | `Inter` (Google Fonts) |
+### Debug
+
+| Config key | Type | Default | Description |
+|---|---|---|---|
+| `Config.EnableDebugCommands` | boolean | `false` | Master switch for the four debug commands below. **Leave this `false` in production** — the commands are registered unrestricted, so any player could run them. |
+| `Config.DebugTestAllCommand` | string | `'ndebug_all'` | Fires one notification per configured type, staggered 600ms. |
+| `Config.DebugPersistentCommand` | string | `'ndebug_persistent'` | Shows a persistent `warning` notification with id `debug_persistent`. |
+| `Config.DebugPersistentHide` | string | `'ndebug_hide'` | Removes the `debug_persistent` notification. |
+| `Config.DebugButtonsCommand` | string | `'ndebug_buttons'` | Shows a 15s `info` notification with **Accept** / **Deny** buttons wired to two example handlers that reply with a success/error notification. |
 
 ## 🌐 Locales & Editable Strings
 
-**Nexus TextUI has no locale system, and the prompts do not need one** — the text a player reads is the `text` you pass into `Create` from your own resource, so it is already in whatever language your resource is localised to. A consumer resource should pass its own translated string, e.g. `text = ('[E] %s'):format(T('open_garage'))`.
+**Nexus Notify has no locale system, and it does not need one for its own output** — every string a player sees in a notification is the `title` and `text` *you* pass in from your own resource, in whatever language you want.
 
 | Where | Strings | Editable without escrow? |
 |---|---|---|
-| Caller's `Create` call | Every prompt the player actually sees. | ✅ Yes — owned by the calling resource. |
-| `html/style.css`, `html/index.html` | No user-facing copy at all (the NUI builds its text purely from the NUI messages). | ✅ Yes — plain assets. |
-| `client/main.lua` | The `Create` validation error, and the four strings of the `/testui` / `/deltestui` demo commands. | ❌ No — `client/main.lua` is **not** listed in `escrow_ignore` (the manifest has no `escrow_ignore` block at all). |
-| `client/_resource.lua` | The resource-name validation message. | ❌ No, and it is in Spanish. |
+| `config.lua` | All config values and comments. | ✅ Yes — in `escrow_ignore`. |
+| `html/index.html` | The `/notifymove` panel UI: `Notification Position & Scale`, `Drag to set your preferred position.`, `Notification Size (…%)`, `Minimalist Mode`, `Save & Close`, `Reset to Default`. | ✅ Yes — NUI files ship as plain assets and are never encrypted. Edit them directly to translate the move panel. |
+| `client.lua` | `'You have moved the notifys here'` (the `/showpos` message) and the four debug notification bodies. | ❌ No — `client.lua` is inside the escrow. |
+| `_resource.lua`, `client.lua`, `server.lua` | The resource-name validation messages. | ❌ No (`client.lua`/`server.lua`), ✅ `_resource.lua` is not escrow-ignored either. |
 
-**Reported to the incident log:**
-- The resource ships **no `escrow_ignore` block whatsoever**, so if it is uploaded to the escrow nothing is left editable. For a resource with no `config.lua`, `functions.lua` or `locales.lua`, that is consistent — but it also means the demo-command strings cannot be changed by a customer.
-- The validation error inside `Create` was tagged `[mi_textui]` (a leftover resource name) and written in Spanish. **Corrected** to `[nexus_TextUI]` in English.
-- `client/_resource.lua` prints in Spanish, and `fxmanifest.lua`'s `description` is in Spanish (`'Sistema de Text UI 3D Standalone y Optimizado'`) while the rest of the catalogue is in English. Reported, not changed.
-- The `/testui` demo strings are hardcoded Spanish inside the escrow (`'PARA LA PRUEBA'`, `'¡La interacción de prueba ha funcionado!'`, `'Punto de prueba creado.'`, `'Punto de prueba eliminado.'`). Reported, not changed — they are developer-facing test commands, but they do ship.
+**Reported to the incident log:** the `/showpos` notification body, the four debug notification bodies and the resource-name error messages are hardcoded **inside the escrow** and cannot be translated by a customer. `_resource.lua` additionally prints its message in Spanish while the rest of the resource is in English. Neither affects normal gameplay — `/showpos` is a diagnostic command and the debug commands are off by default — but a `Config.Text = { ... }` block in `config.lua` would remove the limitation.
 
 ## 🔗 Compatibility
 
 | System | How it integrates |
 |---|---|
-| **Frameworks** | None required, none selected. There is no `Config.Framework`. Job/grade gating is done by the consumer inside its own `canInteract` predicate, which keeps the resource framework-neutral: `canInteract = function() return PlayerData.job and PlayerData.job.name == 'police' end`. |
-| **Databases** | None. |
-| **Notification systems** | Not used by this resource. The only notifications it produces are in the `/testui` demo commands, which use the plain GTA natives (`SetNotificationTextEntry` / `DrawNotification`) specifically so the resource stays dependency-free. |
-| **Target resources (`ox_target`, `qb-target`, `bt-target`)** | Can coexist, and the two solve different problems. Use a target resource for interactions tied to *entities* (peds, vehicles, props with bone offsets); use Nexus TextUI for interactions tied to *fixed world coordinates*, which is cheaper and gives you the distance indicator for free. Nothing conflicts — they draw independent NUIs. |
-| **Other TextUI resources (`ox_lib` TextUI, `esx_textui`, `cd_drawtextui`)** | Can coexist, but both will draw if you register the same interaction in both. This resource deliberately exposes `Create`/`Delete` rather than `Open`/`Close`, so it is **not** a drop-in replacement for an `Open`/`Close` API — see the FAQ for the adapter pattern. |
-| **Keys / fuel / banking / inventory** | Not used. Any such check belongs in your `canInteract` predicate or your `onInteract` handler. |
-| **Nexus Scripts catalogue** | Other Nexus resources that expose a TextUI branch in their config call `exports['nexus_TextUI']:Create` / `:Delete` from that branch. |
+| **Frameworks** | None required. The resource is framework-agnostic and never reads a player object, job or identifier. It works on ESX, QBCore, vRP, QBox or a bare server with no changes. |
+| **Databases** | None. Player preferences use FiveM's KVP store, scoped to the resource and to the individual player's machine. |
+| **Other notification resources** | Can coexist. Nexus Notify does **not** override `ESX.ShowNotification`, `QBCore.Functions.Notify`, `chat:addMessage` or the GTA natives, and it does not register itself as a drop-in replacement for `okokNotify` / `mythic_notify`. Resources keep using whatever they already use until you point them at `exports['nexus_notify']:Alert`. |
+| **Nexus Scripts catalogue** | Other Nexus resources select their notification backend through their own `Config.NotifySystem` / `Config.NotifyStyle` key and their own `functions.lua`; choosing the `nexus` / `nexus_notify` branch there makes them call this resource's `Alert` export. Nexus Notify itself needs no configuration for that. |
+| **GTA colour codes** | The NUI parses `~r~ ~g~ ~b~ ~y~ ~o~ ~p~` + `~s~` itself, so messages written for ESX/QBCore native notifications display correctly without rewriting them. |
+| **TextUI / target / keys / fuel / banking** | Not used. This resource has no world interaction at all. |
 
 ## 💻 Developer API
 
-> This is the section third-party developers integrate against. Everything below was read directly out of `client/main.lua`, `html/script.js` and `fxmanifest.lua`.
+> This is the section third-party developers integrate against. Everything below was read directly out of `client.lua`, `server.lua` and `html/script.js`.
 
 ### Client Exports
 
-Both exports are **client-side only**. There is no server script in this resource, so there are no server exports.
+Call these from any **client** script.
 
 | Export | Parameters | Returns | Description |
 |---|---|---|---|
-| `exports['nexus_TextUI']:Create` | `config` (table) | nothing | Registers an interaction point. Requires `config.id`; without it, prints `[nexus_TextUI] Error: Create() called without a unique id.` and returns. Parses `config.text` into `config.formattedText`, initialises `config.lastScreenState`, and stores the table under `activeInteractions[config.id]`. Nothing is drawn until the player walks inside `viewDistance`. |
-| `exports['nexus_TextUI']:Delete` | `id` (string) | nothing | Unregisters the point and sends `{ action = 'remove', id = id }` to the NUI. Returns immediately (no-op) if `id` is not registered. |
+| `exports['nexus_notify']:Alert` | `title` (string), `text` (string), `duration` (number\|nil), `notificationType` (string\|nil), `playSound` (boolean\|nil), `options` (table\|nil) | nothing | Shows a notification to the local player. Returns early and does nothing if `title` *or* `text` is falsy. |
+| `exports['nexus_notify']:Remove` | `persistentId` (string) | nothing | Hides and forgets the persistent notification with that id. No-op if no notification with that id is currently tracked. |
 
-Both functions are also declared as globals (`Create` / `Delete`) inside the resource's own Lua state, which is why `/testui` can call `Create(...)` directly — but from **your** resource, always go through the export.
+**Argument detail for `Alert`:**
+
+| Argument | Type | Default when `nil` | Notes |
+|---|---|---|---|
+| `title` | string | — | **Required.** Rendered in the accent colour in full style. **Not rendered at all in minimalist style** (`.notification-title { display: none }`). |
+| `text` | string | — | **Required.** The message body. Supports `~r~ ~g~ ~b~ ~y~ ~o~ ~p~` … `~s~`, `**bold**` and `*italic*`. Single-line: it is clipped with an ellipsis, not wrapped. |
+| `duration` | number (ms) | `Config.DefaultDuration` | Pass `0` together with `options.persistentId` for a notification that never auto-hides. |
+| `notificationType` | string | `'info'` | Any key of `Config.Styles`. An unknown value silently falls back to `info`. |
+| `playSound` | boolean | `Config.EnableSounds` | `true` forces sound even if `EnableSounds = false`; `false` forces silence; `nil` follows config. The actual file comes from `Config.Sounds[notificationType]` — a type missing from that table plays nothing even when `playSound = true`. |
+| `options` | table | `nil` | `{ persistentId = string, buttons = table }`. See below. |
+
+**`options.persistentId`** (string) — makes the notification persistent. Calling `Alert` again with the same id sends `action = 'update'` and rewrites the existing card's title and message in place instead of stacking a second card. Persistent notifications render **no progress bar**. Remove them with `:Remove(id)`.
+
+**`options.buttons`** (array of tables) — each entry:
+
+| Field | Type | Description |
+|---|---|---|
+| `label` | string | Button text. If `key` is set, the label is rewritten in place to `"<label> (<key>)"`. |
+| `key` | string | Optional key hint, e.g. `'F7'`. **See the FAQ: this only appends text to the label — the keybind itself is not currently wired up.** |
+| `event` | string | Name of the **client** event triggered via `TriggerEvent` when the button is clicked. |
+| `params` | any | Single value passed as the sole argument to that event. |
+
+Clicking any button hides the notification immediately. Button notifications always render in full style, even for a player who chose minimalist mode.
 
 ```lua
--- Register a point
-exports['nexus_TextUI']:Create({
-    id                  = 'garage_pillbox',
-    coords              = vector3(215.76, -810.12, 30.73),
-    viewDistance        = 12.0,
-    interactionDistance = 2.0,
-    text                = '[E] Open the garage',
-    key                 = 'E',
-    onInteract          = function()
-        TriggerEvent('mygarage:open', 'pillbox')
-    end,
-    canInteract         = function()
-        return not IsPedInAnyVehicle(PlayerPedId(), false)
-    end,
+-- Simple
+exports['nexus_notify']:Alert('Garage', 'Vehicle stored.', 4000, 'success', true)
+
+-- With markup, following the player's sound preference
+exports['nexus_notify']:Alert('Bank', 'You received ~g~$1,250~s~ from **payroll**.', 6000, 'info')
+
+-- Persistent status card, updated in place
+exports['nexus_notify']:Alert('Delivery', 'Packages left: 4', 0, 'info', false, {
+    persistentId = 'delivery_progress'
 })
+exports['nexus_notify']:Alert('Delivery', 'Packages left: 3', 0, 'info', false, {
+    persistentId = 'delivery_progress'   -- updates the same card
+})
+exports['nexus_notify']:Remove('delivery_progress')
 
--- Remove it
-exports['nexus_TextUI']:Delete('garage_pillbox')
+-- Buttons
+exports['nexus_notify']:Alert('Invite', 'Join the crew?', 15000, 'info', true, {
+    buttons = {
+        { label = 'Accept', key = 'F7', event = 'mycrew:accept', params = { id = 12 } },
+        { label = 'Deny',   key = 'F8', event = 'mycrew:deny',   params = { id = 12 } },
+    }
+})
 ```
-
-**Return value:** neither export returns anything, so there is no success/failure value to check. `Create` fails silently (apart from the console line) only when `id` is missing.
-
-**Overwrite semantics:** calling `Create` again with an id that already exists replaces the stored table outright. That is the supported way to change a point's text, distances, key or predicate — there is no `Update` export. The NUI element is reused, and the new text is picked up on the next 250 ms state pass.
 
 ### Server Exports
 
-**None.** `fxmanifest.lua` declares no `server_script` / `server_scripts` entry. If you need to create a point from the server, trigger your own client event and call the export there:
+Call these from any **server** script. Identical names, with `target` inserted as the **first** argument.
+
+| Export | Parameters | Returns | Description |
+|---|---|---|---|
+| `exports['nexus_notify']:Alert` | `target` (number), `title`, `text`, `duration`, `notificationType`, `playSound`, `options` | nothing | Relays to `nexus_notify:client:Alert` on the target. Validates the target first: if `target ~= -1` and `GetPlayerName(target)` is falsy, it prints `[nexus_notify] ERROR: Alert called with invalid target: <target>` and returns without sending. |
+| `exports['nexus_notify']:Remove` | `target` (number), `persistentId` (string) | nothing | Relays to `nexus_notify:client:Remove`. Same target validation and same error message pattern (`Remove called with invalid target`). |
+
+| `target` value | Effect |
+|---|---|
+| a player's server id | Sends to that player only. |
+| `-1` | Broadcasts to **all** connected players. |
+| anything else / a disconnected id | Nothing is sent; an error line is printed to the server console. |
 
 ```lua
--- your server.lua
-TriggerClientEvent('myresource:registerPoint', src, pointData)
+-- One player
+exports['nexus_notify']:Alert(source, 'Shop', 'Purchase complete.', 4000, 'success', true)
 
--- your client.lua
-RegisterNetEvent('myresource:registerPoint', function(data)
-    exports['nexus_TextUI']:Create({
-        id = data.id, coords = vector3(data.x, data.y, data.z),
-        viewDistance = 10.0, interactionDistance = 2.0,
-        text = '[E] ' .. data.label, key = 'E',
-        onInteract = function() TriggerServerEvent('myresource:use', data.id) end,
-    })
-end)
+-- Everyone
+exports['nexus_notify']:Alert(-1, 'Server', 'Restart in ~r~5 minutes~s~.', 10000, 'warning', true)
+
+-- Persistent, server-driven, then cleared
+exports['nexus_notify']:Alert(source, 'Jail', 'Time left: 10 min', 0, 'error', false, {
+    persistentId = 'jail_timer'
+})
+exports['nexus_notify']:Remove(source, 'jail_timer')
+
+-- Buttons: the events fire on the receiving player's CLIENT
+exports['nexus_notify']:Alert(source, 'Admin', 'Report assigned to you.', 20000, 'admin', true, {
+    buttons = {
+        { label = 'Teleport', key = 'F7', event = 'myadmin:tpToReport', params = reportId },
+    }
+})
 ```
 
 ### Events — Emitted
 
 | Event | Side | Payload | When |
 |---|---|---|---|
-| *(none)* | — | — | **The resource emits no Lua events at all** — not on create, not on delete, not on interact. All communication back to your code goes through the `onInteract` / `canInteract` callbacks you supplied, which are called directly as Lua functions. |
-
-If you need an event-based integration (for logging, analytics or anti-cheat), raise it yourself inside your own `onInteract`:
-
-```lua
-onInteract = function()
-    TriggerEvent('myresource:textuiUsed', 'garage_pillbox')
-    TriggerServerEvent('myresource:logInteraction', 'garage_pillbox')
-end
-```
+| `nexus_notify:client:Alert` | server → client | `title, text, duration, type, playSound, options` | Emitted by the server-side `Alert` export after target validation. Received by `client.lua`, which forwards it straight into the client `Alert` export. |
+| `nexus_notify:client:Remove` | server → client | `persistentId` | Emitted by the server-side `Remove` export. |
+| *(caller-defined)* | client | the button's `params` value | `TriggerEvent(data.event, data.params)` fired from the `buttonClick` NUI callback when a player clicks a notification button. The event name and payload are entirely yours. |
+| `chat:addSuggestion` | client | `'/<command>', '<description>'` | Emitted once at start for each of the four debug commands, only when `Config.EnableDebugCommands = true`. |
+| `nexus_notify:debug:accept` / `nexus_notify:debug:deny` | client | `{}` | Example button events used only by the `ndebug_buttons` debug command. Handled internally; do not rely on them. |
 
 ### Events — Listened
 
 | Event | Side | Payload | Purpose |
 |---|---|---|---|
-| *(none)* | — | — | The resource registers **no** `RegisterNetEvent` and **no** `AddEventHandler`. It cannot be driven by events, only by its exports. This also means a malicious client cannot make another player's screen show a prompt through this resource. |
+| `nexus_notify:client:Alert` | client | `title, text, duration, type, playSound, options` | Entry point for server-originated notifications. **You can trigger this directly** with `TriggerClientEvent` if you prefer events to exports — it has the exact same effect as the client export. |
+| `nexus_notify:client:Remove` | client | `persistentId` | Entry point for server-originated removals. |
 
-### Commands
+> There is **no** `nexus_notify:server:*` event. Server-side usage goes through the exports; the server registers no net events, so a malicious client cannot make another player show a notification through this resource.
 
-| Command | Restricted | Purpose |
-|---|---|---|
-| `/testui` | No | Registers a demo point (`id = 'test_interaction'`) 2 m in front of the player, `viewDistance = 5.0`, `interactionDistance = 2.0`, key `E`, with `canInteract` returning `false` while in a vehicle. |
-| `/deltestui` | No | Deletes `test_interaction`. |
+### NUI Callbacks
 
-Both are registered unconditionally — there is no `Config.Debug` gate — so **any player on your server can run them**. They only create a point for the caller's own client and cannot affect anyone else, but see the incident log.
+Internal, but documented because they are part of the client surface if you fork the NUI.
+
+| Callback | Posted from | Payload | Effect in `client.lua` |
+|---|---|---|---|
+| `savePosition` | Save & Close button | `{ x, y, scale }` | Writes KVP `nexus_notify_pos_x`, `nexus_notify_pos_y`, `nexus_notify_scale`; closes move mode; releases NUI focus. |
+| `saveMinimalist` | Minimalist toggle | `{ value = boolean }` | Writes KVP `nexus_notify_minimalist` as `1`/`0` — **only if** `Config.AllowUserMinimalistToggle` is `true`. |
+| `resetPosition` | Reset to Default button | `{}` | Responds with `{ pos = Config.DefaultPosition, scale = Config.DefaultScale }`. Note this only repositions the *panel* in the NUI; nothing is persisted until the player presses Save. |
+| `buttonClick` | A notification button | `{ event, params }` | `TriggerEvent(data.event, data.params)`. |
 
 ### NUI Messages (Lua → JavaScript)
 
-Documented for anyone forking `html/`.
+| Action | Payload | Handled by |
+|---|---|---|
+| `show` | `{ data = notificationData }` | `showNotification()` — builds and inserts the card. |
+| `update` | `{ data = notificationData }` | `updateNotification()` — rewrites `.notification-title` (`textContent`) and `.notification-message` (`innerHTML`, through `formatText`) of the card matching `data.persistentId`. |
+| `hide` | `{ id = persistentId }` | `hideNotification()` — adds `.hiding`, then removes the node after the exit animation (400ms full / 380ms mini). |
+| `moveMode` | `{ enabled, currentPos, currentScale, showReset, allowToggle, minimalist }` | `toggleMoveMode()` — shows/hides the drag panel. |
+| `setMinimalist` | `{ value }` | Handled in `html/script.js` but **never sent by `client.lua`** — a dead branch. Noted in the incident log. |
 
-| Action | Payload | Sent by | Effect |
-|---|---|---|---|
-| `updateContent` | `{ item = { id, type, content? } }` | the 250 ms state thread, once per in-range point per pass | Creates the DOM element on first sight (a `.indicator-wrapper` plus a `.text-wrapper` containing `.key-box` and `.text-box`), writes `content.key` / `content.text` when `type == 'text'`, and swaps the `show-indicator` / `show-text` class. `type` is `'text'` inside `interactionDistance`, `'indicator'` outside it. `content` is only present for `'text'`. |
-| `updatePositions` | `{ positions = { {id, x, y, scale}, … } }` | the frame-rate render thread, **only when something changed** | Sets `style.left = x + '%'`, `style.top = y + '%'` and `style.transform = translate(-50%,-50%) scale(scale)` on each listed element. Batched: all changed points in one message. |
-| `remove` | `{ id = id }` | `Delete`, and the state thread for points that left range | Drops the `visible` class and removes the element from the DOM and from the JS `Map` after 300 ms. |
+The `notificationData` table pushed on `show` / `update`:
+
+```lua
+{
+    type         = notificationType,            -- resolved type name
+    title        = title,
+    text         = text,
+    duration     = duration or Config.DefaultDuration,
+    playSound    = soundFile or false,          -- filename inside html/sounds/, or false
+    volume       = Config.DefaultVolume,
+    useLogo      = Config.UseLogoInsteadOfIcon,
+    logoFile     = Config.LogoFileName,
+    position     = userPosition,                -- the player's saved {x, y}
+    scale        = userScale,                   -- the player's saved scale
+    persistentId = options and options.persistentId,
+    buttons      = options and options.buttons,
+    hasKeybinds  = hasKeybinds,
+    style        = Config.Styles[notificationType],  -- the whole style table
+    minimalist   = userMinimalist,
+}
+```
 
 ### Editable Functions
 
-**There is no `functions.lua`.** Unlike the gameplay resources in the catalogue, Nexus TextUI has no external system to branch on — no notification backend, no framework, no target — so there is nothing to abstract behind editable functions. The two customisation surfaces are:
+**There is no `functions.lua` in this resource**, and it needs none: Nexus Notify is the notification backend, not a consumer of one, so it has no external system to branch on. The customisation surface is `config.lua` (types, colours, icons, sounds, defaults) plus the NUI files in `html/`, all of which ship unencrypted.
 
-1. **Per point, at call time** — `text`, `key`, the two distances, `onInteract` and `canInteract` are all supplied by the caller, so behaviour is customised per interaction rather than per server.
-2. **`html/style.css`** — the whole visual identity (colours, sizes, animation timings, font). NUI files ship as plain assets and are never encrypted, so a customer can restyle the prompt freely without touching Lua.
+`exports.lua` exists in the folder and is listed in `escrow_ignore`, but it is **not** loaded by any `shared_scripts` / `client_scripts` / `server_scripts` entry in `fxmanifest.lua`. It is a plain-text API cheat-sheet shipped for the customer to read — it is intentionally not executable code (running it would error, since it calls the exports with undefined variables). Noted in the incident log so it is not mistaken for a dead script.
 
 ### Database Schema
 
-**None.** The resource creates no tables, ships no `.sql` file, and persists nothing — not even KVP. Every registered point lives only in the client's memory and is gone on resource restart or player reconnect, which is why consumers should register their points from a start-up thread or on `playerLoaded` rather than once in a one-shot event.
+**None.** This resource creates no tables and ships no `.sql` file. All persistence is FiveM KVP:
+
+| KVP key | Type | Written by | Holds |
+|---|---|---|---|
+| `nexus_notify_pos_x` | int | `savePosition` | Anchor X as a percentage of screen width. |
+| `nexus_notify_pos_y` | int | `savePosition` | Anchor Y as a percentage of screen height. |
+| `nexus_notify_scale` | float | `savePosition` | Scale multiplier. |
+| `nexus_notify_minimalist` | int (`0`/`1`) | `saveMinimalist` | Whether the player chose the compact pill style. |
+
+KVP is stored client-side per machine, so a player's layout does not follow them to another PC, and it is not readable from the server.
 
 ### Integration Example
 
-A complete job-gated shop point that registers on player load, re-registers after a resource restart, respects the player's job through `canInteract`, and cleans up after itself.
+A delivery job that uses a persistent notification as a live progress HUD, a button notification to offer a bonus run, and a broadcast when the route is finished.
 
 ```lua
 -- ───────────────────────── client.lua of your resource
-local POINTS = {
-    { id = 'ammunation_1', coords = vector3(22.09, -1107.28, 29.79),  label = 'Ammunation' },
-    { id = 'ammunation_2', coords = vector3(810.25, -2157.60, 29.61), label = 'Ammunation' },
-}
+local remaining = 5
+local HUD_ID    = 'mydelivery_hud'
 
-local registered = false
-
-local function hasTextUI()
-    return GetResourceState('nexus_TextUI') == 'started'
+local function hasNotify()
+    return GetResourceState('nexus_notify') == 'started'
 end
 
-local function registerPoints()
-    if not hasTextUI() or registered then return end
-    for _, p in ipairs(POINTS) do
-        exports['nexus_TextUI']:Create({
-            id                  = p.id,
-            coords              = p.coords,
-            viewDistance        = 15.0,   -- diamond indicator from 15 m
-            interactionDistance = 1.8,    -- prompt + key from 1.8 m
-            text                = ('[E] %s'):format(p.label),
-            key                 = 'E',
-            canInteract         = function()
-                -- hidden in a vehicle, while dead, and outside opening hours
-                if IsPedInAnyVehicle(PlayerPedId(), false) then return false end
-                if IsEntityDead(PlayerPedId()) then return false end
-                local h = GetClockHours()
-                return h >= 8 and h < 22
-            end,
-            onInteract          = function()
-                TriggerServerEvent('myshop:open', p.id)
-            end,
-        })
+local function notify(title, text, duration, nType, sound, options)
+    if hasNotify() then
+        exports['nexus_notify']:Alert(title, text, duration, nType, sound, options)
+    else
+        SetNotificationTextEntry('STRING')
+        AddTextComponentString(text)
+        DrawNotification(false, false)
     end
-    registered = true
 end
 
-local function unregisterPoints()
-    if not hasTextUI() then return end
-    for _, p in ipairs(POINTS) do
-        exports['nexus_TextUI']:Delete(p.id)
-    end
-    registered = false
-end
-
--- Register on spawn and on framework load; points live in client memory only,
--- so they must be re-created after any restart or reconnect.
-AddEventHandler('playerSpawned', registerPoints)
-RegisterNetEvent('esx:playerLoaded',     registerPoints)
-RegisterNetEvent('QBCore:Client:OnPlayerLoaded', registerPoints)
-
-CreateThread(function()
-    while not hasTextUI() do Wait(500) end
-    registerPoints()
-end)
-
--- Always clean up, or stale prompts stay on screen until the player reconnects
-AddEventHandler('onClientResourceStop', function(res)
-    if res == GetCurrentResourceName() then unregisterPoints() end
-end)
-
--- If nexus_TextUI itself restarts, our points are gone from ITS memory — re-add them
-AddEventHandler('onClientResourceStart', function(res)
-    if res == 'nexus_TextUI' then
-        registered = false
-        Wait(500)
-        registerPoints()
-    end
-end)
-```
-
-**Dynamic text** — because there is no `Update` export, re-`Create` with the same id:
-
-```lua
-local function setShopPrompt(id, coords, label)
-    exports['nexus_TextUI']:Create({
-        id = id, coords = coords,
-        viewDistance = 15.0, interactionDistance = 1.8,
-        text = ('[E] %s'):format(label),      -- new text
-        key = 'E',
-        onInteract = function() TriggerServerEvent('myshop:open', id) end,
+-- Persistent HUD: same id every time, so the card updates instead of stacking
+local function refreshHud()
+    notify('Delivery Route', ('Packages left: ~y~%d~s~'):format(remaining), 0, 'info', false, {
+        persistentId = HUD_ID
     })
 end
 
-setShopPrompt('ammunation_1', POINTS[1].coords, 'Ammunation — CLOSED')
-```
-
-**Adapter for code written against an `Open`/`Close` TextUI** — the two models are not equivalent (this resource owns the distance check, so there is nothing to "open"), but a screen-anchored stand-in can be built by registering a point on the player's own position. The clean migration is to delete your distance loop and let the point own it:
-
-```lua
--- Before (Open/Close style, your own loop)
-CreateThread(function()
-    while true do Wait(5)
-        if #(GetEntityCoords(PlayerPedId()) - shopCoords) < 2.0 then
-            TextUI:Open('[E] Shop')
-            if IsControlJustPressed(0, 38) then openShop() end
-        else
-            TextUI:Close()
-        end
+RegisterNetEvent('mydelivery:packageDelivered', function()
+    remaining = remaining - 1
+    if remaining > 0 then
+        refreshHud()
+    else
+        if hasNotify() then exports['nexus_notify']:Remove(HUD_ID) end
+        notify('Delivery Route', 'Route complete. Head back to the depot.', 6000, 'success', true)
     end
 end)
 
--- After (Nexus TextUI, no loop)
-exports['nexus_TextUI']:Create({
-    id = 'shop', coords = shopCoords,
-    viewDistance = 12.0, interactionDistance = 2.0,
-    text = '[E] Shop', key = 'E',
-    onInteract = openShop,
-})
+-- Offer a bonus run with buttons
+RegisterNetEvent('mydelivery:offerBonus', function(bonusId)
+    notify('Bonus Run', 'A rush order is available. ~g~+$500~s~', 20000, 'warning', true, {
+        buttons = {
+            { label = 'Take it', key = 'F7', event = 'mydelivery:acceptBonus', params = bonusId },
+            { label = 'Pass',    key = 'F8', event = 'mydelivery:declineBonus', params = bonusId },
+        }
+    })
+end)
+
+AddEventHandler('mydelivery:acceptBonus', function(bonusId)
+    TriggerServerEvent('mydelivery:claimBonus', bonusId)
+end)
+
+AddEventHandler('mydelivery:declineBonus', function()
+    notify('Bonus Run', 'Offer declined.', 3000, 'info')
+end)
+
+-- Make sure the HUD never survives a resource stop
+AddEventHandler('onResourceStop', function(res)
+    if res == GetCurrentResourceName() and hasNotify() then
+        exports['nexus_notify']:Remove(HUD_ID)
+    end
+end)
+
+-- ───────────────────────── server.lua of your resource
+RegisterNetEvent('mydelivery:claimBonus', function(bonusId)
+    local src = source
+    -- … validate and pay …
+    exports['nexus_notify']:Alert(src, 'Bonus Run', 'Bonus paid: ~g~$500~s~', 5000, 'success', true)
+    exports['nexus_notify']:Alert(-1, 'Depot', 'A rush order was just claimed.', 5000, 'info', false)
+end)
+```
+
+Adding your own notification type takes no code at all — append to `Config.Styles`, drop the SVG in `html/icons/`, and call it:
+
+```lua
+-- config.lua
+['heist'] = {
+    iconFile   = 'icons/heist.svg',
+    color      = '#facc15',
+    background = 'rgba(26, 20, 6, 0.97)',
+    glow       = '0 0 18px rgba(250, 204, 21, 0.35)'
+},
+-- optionally: Config.Sounds.heist = 'alarm.wav'
+
+-- anywhere
+exports['nexus_notify']:Alert('Heist', 'Vault drilling started.', 8000, 'heist', true)
 ```
 
 ## ❓ FAQ
 
-**I called `Open()` / `Close()` and got a nil error.**
-Those functions do not exist. This resource exposes **`Create(config)`** and **`Delete(id)`** — a point registry, not a show/hide helper. See the adapter pattern in the Integration Example: you register the point once and delete your distance loop entirely.
+**The `key` on my notification buttons does nothing — the button works when clicked, but pressing the key does not.**
+Correct, and this is a current limitation rather than a misconfiguration. Setting `key` appends `" (F7)"` to the button label and flags the notification as persistent internally, but the client keybind-listening thread in `client.lua` has no body yet — its inner loop over the tracked notifications is empty. Use the buttons with the mouse, or register your own `RegisterKeyMapping` / `IsControlJustPressed` handler in your resource and call `exports['nexus_notify']:Remove(id)` yourself.
 
-**The key letter appears twice — the badge shows `E` and the text box shows `[E] Open the garage`.**
-Known display issue, logged as an incident. `Create` fills the key badge from the bracketed part of `text`, but then rebuilds the text-box string as `"[KEY] rest"` including the bracket, so the key renders in both boxes. Until it is fixed, the clean workaround is to **not** use the bracket pattern: pass `text = 'Open the garage'` and `key = 'E'`. The fallback branch then sets the badge from `config.key` and the text box to your string verbatim, giving the intended `[E] | Open the garage` layout.
+**I passed a `persistentId` *and* buttons with keys, and now `Remove(myId)` does not remove it.**
+When any button has a `key`, the resource overwrites your `persistentId` with an internally generated one (`_keybind_notify_<random>`). Your own id is never registered, so `Remove` cannot find it. If you need to remove a notification by id, do not set `key` on its buttons.
 
-**Nothing appears at all.**
-Check, in order: (1) the folder is named exactly `nexus_TextUI` with capital `UI` — on Linux the check is case-sensitive and the resource aborts; (2) `coords` is a real `vector3`, not `{x, y, z}` — the code uses vector arithmetic and will error on a plain table; (3) you are inside `viewDistance`; (4) your `canInteract` is not returning `false` (remember a predicate that returns *nothing* returns `nil`, which is falsy — always `return true`); (5) `nexus_TextUI` is started *before* the resource that calls `Create`.
+**New players do not get `Config.DefaultPosition` — notifications appear in the top-left corner.**
+This is a known bug, not a config mistake. The resource reads the saved position with `GetResourceKvpInt`, which returns `0` (not `nil`) when the key has never been written, so the `or Config.DefaultPosition.x` fallback never runs and a brand-new player ends up at `0, 0`. Workaround: tell players to run `/notifymove` once and press **Save & Close**, which writes real KVP values. It is listed in the incident log for a code fix.
 
-**The prompt shows but pressing the key does nothing.**
-`config.key` must be an **uppercase name from the internal `Keys` table** — `'E'`, not `'e'`, and not the numeric control id. An unrecognised name resolves to `nil` and will throw inside `IsControlJustPressed` the moment you walk into `interactionDistance`. Also confirm you actually passed `onInteract`: without it the prompt is purely informational and the press is ignored. And note the key is only polled **inside `interactionDistance`**, not inside `viewDistance`.
+**A player turned minimalist mode off but it keeps coming back on.**
+Same class of bug. The saved value `0` (meaning "off") is treated as "nothing saved", so the code falls back to `Config.MinimalistMode`. If you have `MinimalistMode = true` in config, players cannot persistently opt out. Set `MinimalistMode = false` as the server default and let players opt *in*, which does persist correctly.
 
-**The prompt flickers / dims rhythmically while I stand next to it.**
-Known issue, logged as an incident. The 250 ms state thread re-sends `updateContent` for every in-range point on every pass, and the NUI handler removes and re-adds the `visible` class each time, restarting the 0.3 s opacity transition roughly four times a second. It is cosmetic — the interaction still works.
+**My notification titles are invisible.**
+You (or the player) are in minimalist mode. The pill style deliberately hides the title (`.notification-title { display: none }`) and shows only the icon and the message. Put anything essential in `text`, not `title`, if your server runs `MinimalistMode = true`.
 
-**My points vanished after I restarted a resource.**
-Expected: registrations live only in the calling client's memory. If **your** resource restarts, re-register on start. If **`nexus_TextUI`** restarts, its `activeInteractions` table is emptied and every consumer must re-register — hook `onClientResourceStart` for `'nexus_TextUI'` as shown in the Integration Example.
+**Long messages get cut off with "…".**
+By design. Both styles set `white-space: nowrap` with `text-overflow: ellipsis`, so notifications are strictly single-line. Split long content across two notifications, or use a persistent notification that you update.
 
-**I deleted a point and `onInteract` still fired once afterwards.**
-Known race, logged as an incident. `Delete` clears the registry and tells the NUI to remove the element immediately, but the frame-rate render thread works from a second table that is only resynchronised on the next 250 ms pass — so for up to 250 ms after `Delete`, a key press can still reach your `onInteract`. Guard inside your handler (e.g. a `local deleted = true` flag) if a late call would be harmful.
+**`Config.DefaultVolume` has no effect.**
+The volume is sent to the NUI in the payload but `html/script.js` creates the sound with `new Audio('sounds/' + file).play()` without assigning `.volume`. Until that is wired up, adjust loudness in the audio file itself. Logged as an incident.
 
-**`canInteract` is not reacting fast enough.**
-It is evaluated on the 250 ms state thread, so a state change can take up to a quarter of a second to hide or show the point. That is the intended trade-off for the resource's low cost; do not use `canInteract` for anything that must be instantaneous. Keep the predicate cheap, too — it runs for every registered point, four times a second.
+**No sound plays for one of my notification types.**
+The type must have an entry in `Config.Sounds` *and* the file must exist in `html/sounds/`. A type present in `Config.Styles` but absent from `Config.Sounds` is silent even with `playSound = true`, because the resource resolves the filename from `Config.Sounds[notificationType]`.
 
-**Can two resources register the same `id`?**
-They can, and the second one silently overwrites the first, including its `onInteract`. Namespace your ids with your resource name (`myshop:ammunation_1`) to avoid collisions.
+**I renamed the folder and the move menu, the reset button and all notification buttons stopped working.**
+The folder must be exactly `nexus_notify`. `_resource.lua` aborts the resource outright on a mismatch, and even if it did not, `html/script.js` posts its callbacks to the hardcoded URL `https://nexus_notify/...`. Rename it back.
 
-**How many points can I register?**
-There is no hard limit. The 250 ms thread is O(number of registered points) and the frame-rate thread is O(number of *visible* points), so cost scales with how many points are near the player, not how many exist. A few hundred registered points with a handful visible is comfortable.
+**Do I have to replace every `ESX.ShowNotification` call in my other scripts?**
+No. Nexus Notify does not hijack framework notifications — it adds a parallel API. Existing calls keep going to your framework. Migrate resource by resource by swapping the call for `exports['nexus_notify']:Alert`, or, for Nexus Scripts resources, just select the `nexus` branch in that resource's own notification config key.
 
-**Can I change the purple colour or the box sizes?**
-Yes — edit `html/style.css` (`.key-box`, `.text-box`, `.indicator-wrapper::before`). NUI files are plain assets and are never encrypted, so this survives the escrow. There is no config key for it.
+**Can the server remove a persistent notification from every player at once?**
+Yes: `exports['nexus_notify']:Remove(-1, 'my_id')`.
 
-**Can I register a point from the server?**
-Not directly — the resource is client-only and has no server exports. Trigger your own client event and call `Create` there (example in the Server Exports section).
+**Notifications stack downward but my anchor is at the bottom of the screen.**
+They should not — the NUI flips `flex-direction` and prepends new cards when `y > 50`. If stacking looks wrong, the player likely saved a position with `y` just under `50`. Have them run `/notifymove` and drag further toward the edge.
 
-**Does it draw through walls?**
-Yes. The resource uses `GetScreenCoordFromWorldCoord` with no occlusion or raycast check, so a point behind a wall is still visible if the player is within `viewDistance` and facing it. Add your own visibility test in `canInteract` if that matters.
+**Is anything stored server-side?**
+No. Player layout preferences live in client-side KVP only. They do not follow the player to a different computer and cannot be read, reset or migrated from the server.
 
 ### Before opening a ticket
 
-- Make sure the resource's name is exactly **`nexus_TextUI`** (capital `U`, capital `I`).
-- Make sure you are using the latest version of the resource (**1.0.0**).
-- Run `/testui` in game. If the demo point works, the resource is fine and the problem is in the calling resource's `Create` call — check `coords` is a `vector3`, `key` is an uppercase name from the `Keys` table, and `canInteract` explicitly returns `true`.
-- Confirm `nexus_TextUI` starts **before** the resources that register points, and that `GetResourceState('nexus_TextUI') == 'started'` when you call `Create`.
-- Check F8 for a Lua error from your own `onInteract` / `canInteract` callback — an error thrown inside your callback surfaces as the prompt "not working".
+- Make sure the resource's name is exactly **`nexus_notify`**.
+- Make sure you are using the latest version of the resource (**3.1.1**).
+- Confirm `nexus_notify` starts **before** the resource that is calling its exports, and that `GetResourceState('nexus_notify') == 'started'` at the moment you call them.
+- Run `/showpos` in game: if you see one notification per configured type, the resource itself is fine and the problem is in the calling resource.
+- If a type renders wrong, check that its `Config.Styles` entry has all four fields and that the `iconFile` exists in `html/icons/`.
 - Review this FAQ page.
 
 ## 📋 Changelog
 
-**Current version: 1.0.0** (`fxmanifest.lua`)
+**Current version: 3.1.1** (`fxmanifest.lua`)
 
-- `1.0.0` — initial release. Point-registry API (`Create` / `Delete`), two-stage proximity rendering (diamond indicator → key + text prompt), distance-based scaling, built-in key handling, `canInteract` predicate, change-gated batched NUI position updates, adaptive render loop, and the `/testui` / `/deltestui` demo commands.
+- `3.1.1` — current release. Full/minimalist dual style with a per-player toggle, config-driven notification types (`Config.Styles`), per-type sounds, persistent and button notifications, client and server export pairs, player-saved position and scale via KVP, and four optional debug commands.
+
+No earlier version history is recorded in the resource.
