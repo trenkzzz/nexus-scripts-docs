@@ -11,7 +11,7 @@
   * [📜 Terms of Service (ToS)](nexus-docs/01-general-information/terminos.md)
 * [📦 Scripts](nexus-docs/02-scripts/README.md)
   * [🔊 Nexus Boombox](nexus-docs/02-scripts/nexus_boombox.md)
-  * [🎯 Nexus Bounty](02-scripts/nexus-bounty.md)
+  * [🎯 Nexus Bounty](nexus-docs/02-scripts/nexus_bounty.md)
   * [📻 Nexus CarRadio](nexus-docs/02-scripts/nexus_carradio.md)
   * [🕒 Nexus Clocking](nexus-docs/02-scripts/nexus_clocking.md)
   * [💀 Nexus DeathScreen](nexus-docs/02-scripts/nexus_deathscreen.md)
