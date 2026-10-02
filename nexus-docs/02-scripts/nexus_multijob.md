@@ -1,495 +1,453 @@
-# Nexus Notify
+# Nexus Multijob
 
-A fully client-configurable notification system for FiveM: every player drags, scales and styles their own notifications, and any resource can push them with a single export — from both client and server.
+A multi-job system that lets players collect several jobs and switch between them from a custom NUI panel — with jobs captured automatically from your framework, no job-centre rewrite required.
 
 ## 📝 Description
 
-Nexus Notify replaces the stock GTA / framework notification feed with a standalone NUI notification stack that each player controls personally. A player runs `/notifymove`, drags the notification anchor anywhere on screen, scales it between 50% and 200% with a slider, optionally switches to a compact "minimalist" pill style, and saves. Those three settings are persisted **per player, per machine** using FiveM's KVP store (`SetResourceKvpInt` / `SetResourceKvpFloat`), so they survive reconnects and server restarts without any database.
+Nexus Multijob gives every player a personal, persistent job roster. Instead of losing their police grade the moment they take a taxi shift, a player accumulates jobs in their own list and swaps the active one whenever they want from a single-key side panel. The roster is capped per server (and optionally per player), the currently active job is protected from accidental deletion, and going off duty is a one-click action.
 
-Internally the resource is deliberately thin. `client.lua` owns a table of currently-displayed persistent notifications, resolves the requested notification type against `Config.Styles`, resolves the sound against `Config.Sounds`, injects the player's saved position/scale/style into the payload, and pushes a single `SendNUIMessage` with one of three actions: `show`, `update` or `hide`. All layout, animation, colour application, text markup parsing and the countdown timer live in `html/script.js`, which means adding a new notification type is a pure config change — a new entry in `Config.Styles` with an SVG filename, a hex colour, a card background and a glow string, and the NUI renders it with no code edits.
+The key design decision is that **the roster fills itself**. The resource does not replace your job centres, your police MDT or your `/setjob` admin tooling: it listens to the job-change events your framework already fires — `esx:setJob` and `esx:playerLoaded` on ESX, `QBCore:Server:SetJob` and `QBCore:Server:PlayerLoaded` on QBCore — and every time a player is given a job by *any* resource, that job plus its grade and labels is upserted into the `nexus_multijob` table. There is no migration step and no integration work for existing job scripts; a player who was hired at the police station simply finds `Police` in their list the next time they open the panel. For first-time users whose current job predates the resource, the panel's own open handler calls `EnsureCurrentJobSaved`, which captures whatever job the player is wearing right now before building the list.
 
-The notification stack is positional-aware: because the player can anchor notifications in any corner, the NUI recomputes `left/right/top/bottom`, `transform-origin`, `flex-direction` and `align-items` from the saved coordinates, and inserts new cards with `prepend` instead of `appendChild` when the anchor sits in the lower half of the screen. The result is that notifications always grow *away* from the screen edge regardless of where the player parked them.
+Everything player-facing goes through a custom NUI panel — a slide-in side card with a header counter (`3/6`), one card per job showing the job label and grade label, an `ACTIVE` badge on the current job, a select button, a delete button, a confirmation drawer for deletions, a themed empty state for unemployed players, and a **Go Off-Duty** footer button that appears only when the player is actually on duty. The panel is **optimistic**: clicking *Select* instantly repaints the cards and the header before the server has answered, then reconciles against the server's authoritative refresh when it arrives, so switching feels instant even with latency. Deletions animate out with a height collapse, and newly added jobs animate in — the refresh path does a real DOM diff rather than re-rendering the list.
 
-Three notification shapes are supported through the same `Alert` export: a standard timed notification with a progress bar, a **persistent** notification addressed by a caller-supplied `persistentId` that stays on screen until explicitly removed (and that *updates in place* if `Alert` is called again with the same id), and a **button** notification that renders clickable buttons which fire client events back into your own resource. The server side is a thin relay: the same `Alert` / `Remove` export names exist server-side with a leading `target` argument, validate the target, and forward over `nexus_notify:client:Alert` / `nexus_notify:client:Remove`.
+On the data side the resource is deliberately small: one table keyed by `(identifier, job)` with a unique index, so a job can never be duplicated for a player, and all queries go through `oxmysql`. Job and grade **labels** are resolved at write time from the framework (`ESX.GetJob` / `QBCore.Shared.Jobs`) and stored alongside the job name, which means the panel renders correct, pretty labels even for jobs whose definitions have since changed, and without a framework round-trip per card. Two config tables let a server owner override any job or grade label without touching the framework.
 
 ## ✨ Features
 
-- **Per-player position** — `/notifymove` opens a draggable anchor panel; the player drags it anywhere, and the position is stored as a percentage of screen width/height so it is resolution-independent.
-- **Per-player scale** — a slider in the move panel from `0.5` to `2.0` in `0.1` steps, applied to the whole stack through a CSS `transform: scale()`.
-- **Two visual styles** — `style-full` (icon bubble, title, message, progress bar, 320px card) and `style-mini` (compact pill, no title, no progress bar, auto width), switchable by the player with a toggle switch in the move panel when `AllowUserMinimalistToggle` is enabled.
-- **Persistence without a database** — position, scale and minimalist choice are written to FiveM KVP (`nexus_notify_pos_x`, `nexus_notify_pos_y`, `nexus_notify_scale`, `nexus_notify_minimalist`). No SQL file, no table, no framework dependency.
-- **Reset-to-default button** — optional button in the move panel (`EnableResetButton`) that pulls `DefaultPosition` / `DefaultScale` back from config through the `resetPosition` NUI callback.
-- **Fully config-driven notification types** — five shipped types (`info`, `success`, `warning`, `error`, `admin`), each with its own SVG icon file, accent colour, card background and glow. Add, edit or delete entries in `Config.Styles` and the NUI follows; an unknown type silently falls back to `info`.
-- **Server-logo mode** — set `UseLogoInsteadOfIcon = true` and every notification renders your server logo (`LogoFileName`, served from `html/`) in the icon bubble instead of the per-type SVG.
-- **Per-type sounds with a global kill switch** — `Config.Sounds` maps each type to a filename inside `html/sounds/`; `EnableSounds` and `DefaultVolume` control the feature globally, and the `playSound` argument overrides it per call (`true` = force, `false` = silence, `nil` = follow config).
-- **Entrance / exit animations** — the full card expands from a circle to a 320px rounded card (`fullIn`), the icon pops with a rotate-and-overshoot keyframe (`iconPop`), the text fades in after the expansion finishes, and the exit collapses back into a circle and shrinks to zero height (`fullOut`). The mini style has its own `pillIn` / `pillOut` pair.
-- **Progress bar** — timed notifications in full style draw a 2px bar in the notification's accent colour that fills across the configured duration. Persistent notifications and mini-style notifications draw no bar.
-- **Text markup** — the message body supports GTA-style colour tags `~r~ ~g~ ~b~ ~y~ ~o~ ~p~` closed with `~s~`, plus `**bold**` and `*italic*`, parsed in the NUI and mapped to real CSS colours.
-- **Persistent notifications with in-place update** — calling `Alert` again with the same `persistentId` sends `action = 'update'` and rewrites the title and message of the existing card instead of stacking a duplicate.
-- **Button notifications** — pass `options.buttons`; each button renders in the card, and clicking it posts back through the `buttonClick` NUI callback, which `TriggerEvent`s the event name you supplied with the params you supplied. Buttons force full style even for players using minimalist mode.
-- **Position-aware stacking** — cards are prepended instead of appended when the anchor is in the lower half of the screen, so the newest notification is always the one closest to the anchor.
-- **Built-in position-check command** — `Config.TestNotifyCommand` (default `/showpos`) fires one notification of every configured type, staggered 600ms apart, so the player can confirm where they parked the stack.
-- **Four optional debug commands** — gated behind `EnableDebugCommands`: one notification per type, show a persistent notification, hide that persistent notification, and show a two-button notification with working example handlers. All four register `chat:addSuggestion` entries.
-- **Framework-free** — no ESX, no QBCore, no database, no `ox_lib`. It runs on a bare server.
+- **Persistent per-player job roster** — jobs are stored in a dedicated `nexus_multijob` table keyed by the framework identifier (ESX `identifier`, QBCore `citizenid`), surviving reconnects and restarts.
+- **Automatic job capture** — hooks `esx:setJob` / `esx:playerLoaded` (ESX) and `QBCore:Server:SetJob` / `QBCore:Server:PlayerLoaded` (QBCore), so any job handed out by any other resource is added to the roster with no integration work.
+- **First-use capture** — opening the panel runs `EnsureCurrentJobSaved`, which adds the player's current job to the roster if it is missing, so existing players are not asked to re-apply for jobs they already have.
+- **Upsert, never duplicate** — a `UNIQUE KEY (identifier, job)` index plus an existence check means re-hiring or a promotion **updates** the stored grade and labels instead of adding a second row.
+- **Server-wide job cap** — `Config.MaxJobs` (default `6`) limits roster size; the cap is enforced server-side at insert time, so it cannot be bypassed from the client.
+- **Per-player cap overrides** — `Config.MaxJobsOverrides` raises or lowers the cap for specific players by identifier, with prefix-tolerant matching: the exact identifier is tried first, then the bare hash with any `license:` / `char1:` / `char2:` / `steam:` prefix stripped, so the same entry works across identifier formats.
+- **Custom NUI panel** — a slide-in side card with: a header showing a briefcase glyph, `MY JOBS` and a live `used/max` counter; one card per job with job label, grade label and an animated `ACTIVE` badge; a select button; a delete button; and a close button.
+- **Optimistic UI** — clicking *Select* repaints every card, swaps the buttons, disables the newly-active one and updates the header immediately, without waiting for the server; the server's `refresh` then reconciles the real state.
+- **DOM-diffing refresh** — the refresh path compares the previous and new job keys, animates removed cards out (fade, slide, then height collapse) and new cards in (fade + translate), and updates surviving cards in place rather than rebuilding the list.
+- **Delete confirmation drawer** — a themed in-panel overlay naming the job, warning that the action cannot be reversed, with Cancel / Delete buttons; clicking the backdrop cancels.
+- **Active-job protection** — the delete button is disabled on the active job in the UI *and* the server rejects the deletion and pushes a UI resync, so the player can never end up with no job through this panel.
+- **One-click off duty** — a footer **GO OFF-DUTY** button that sets the player to `Config.UnemployedJob` / `Config.UnemployedGrade`. It is hidden entirely when `Config.AllowOffDuty = false`, and also hidden while the player is already off duty.
+- **Themed empty state** — unemployed players get a dedicated panel with a ringed briefcase icon, a `YOU ARE UNEMPLOYED` headline, a randomly generated reference code, guidance to visit a job office, and an `AVAILABLE JOBS` tag.
+- **Six colour themes** — `Config.Theme` picks `purple` (default), `orange`, `green`, `red`, `blue` or `gold`; the theme is pushed to the NUI as a `data-theme` attribute and swaps a full set of CSS custom properties (three accent shades, glow, dim, three border alphas, the active-card background and a secondary accent).
+- **Configurable open key** — `Config.OpenKey` (default `F5`) is registered through `RegisterKeyMapping`, so it also appears in the player's own FiveM keybind settings and can be rebound per player.
+- **Command access** — `/nexus_jobs` toggles the panel, so it works for players who unbind the key, and can be called from your own code.
+- **ESC-to-close** — captured inside the NUI (game controls are blocked while NUI has focus) and relayed back to Lua to release focus cleanly.
+- **Admin grant command** — `/njgive [playerid] [job] [grade]` adds a job to a player's roster, gated on ESX `admin`/`superadmin` group or QBCore `admin` permission, and usable from the server console.
+- **Label overrides** — `Config.JobLabels` and `Config.GradeLabels` override the framework's labels per job and per grade, applied both at capture time and at display time.
+- **Seven-language notification locales** — `es`, `en`, `de`, `fr`, `it`, `pt`, `zh`, selected with `Config.Locale`, with an automatic `es` fallback for any missing key.
+- **Pluggable notifications** — `Config.NotifyStyle` selects `native` (GTA), `esx`, `qb` or `ox` (`ox_lib`) without touching code.
+- **Resource-name validation** — the resource aborts at start with a clear console error if the folder has been renamed.
 
 ## 📋 Dependencies
 
 | Dependency | Required | Notes |
 |---|---|---|
-| Framework (ESX / QBCore) | ❌ No | The resource never touches a framework object. It is fully standalone. |
-| Database / MySQL | ❌ No | Player settings use FiveM KVP, not SQL. There is no `.sql` file. |
-| `ox_lib` or any UI library | ❌ No | The NUI is self-contained. |
-| Internet access on the client | ⚠️ Soft | `html/style.css` imports the Roboto font from Google Fonts. Without internet the NUI falls back to the generic sans-serif; nothing breaks. |
+| **Framework: ESX or QBCore** | ✅ Yes | Selected with `Config.Framework` (`'esx'` or `'qbcore'`). The resource reads the player object, job and grade through the framework and cannot run standalone. |
+| **`oxmysql`** | ✅ Yes | Hard dependency. `fxmanifest.lua` loads `@oxmysql/lib/MySQL.lua`, and the server uses `MySQL.query`, `MySQL.scalar`, `MySQL.insert` and `MySQL.update`. **`mysql-async` is not supported** — unlike some other resources in the catalogue, this one does not go through a compatibility layer. |
+| **MySQL / MariaDB database** | ✅ Yes | One table, created by the included `nexus_multijob.sql`. |
+| **Jobs defined in your framework** | ✅ Yes | Labels are resolved from `ESX.GetJob(name)` / `QBCore.Shared.Jobs[name]`. A job that does not exist in the framework still works, but falls back to showing the raw job name and the numeric grade. |
+| **An `unemployed` job** | ✅ Yes (if off duty is enabled) | `Config.UnemployedJob` must be a job your framework accepts. Both ESX and QBCore ship `unemployed` by default. |
+| **`ox_lib`** | ⚠️ Optional | Only required if you set `Config.NotifyStyle = 'ox'`. |
+| **`nexus_notify`** | ❌ No | Not wired into this resource's notification branch — see Compatibility. |
+| Internet access on the client | ⚠️ Soft | The NUI loads Bebas Neue and Inter from Google Fonts; without internet it falls back to a generic sans-serif. |
 
-The only hard requirement is that **the resource folder must be named exactly `nexus_notify`**. Both `_resource.lua` and `client.lua`/`server.lua` validate this on start and abort if it differs, because the export namespace (`exports['nexus_notify']`) and the NUI callback URLs (`https://nexus_notify/...`, hardcoded in `html/script.js`) depend on that exact name.
+The folder **must** be named exactly `nexus_multijob`. `shared/_resource.lua` raises a hard `error()` and aborts the resource otherwise.
 
 ## ⚙️ Installation
 
-1. **Download and extract the resource.** Download it from the cfx.re (Keymaster) portal and place the folder in your `resources` directory.
-2. **Do not rename the folder.** It must stay `nexus_notify`. The NUI posts its callbacks to `https://nexus_notify/...`, so a renamed folder breaks the move menu, the reset button and all notification buttons.
-3. **Add it to `server.cfg`.** It has no dependencies, so it can go anywhere — but put it **before** every resource that will send notifications through it, so the export exists by the time they start:
+1. **Download and extract the resource.** Download it from the cfx.re (Keymaster) portal and place the folder in your `resources` directory. Keep the name `nexus_multijob`.
+2. **Import the database.** Import `nexus_multijob.sql` into your database. It creates a single `nexus_multijob` table with a `UNIQUE KEY` on `(identifier, job)`. The script uses `CREATE TABLE IF NOT EXISTS`, so re-running it is safe.
+3. **Check your MySQL resource.** `oxmysql` is required and must be started **before** `nexus_multijob`.
+4. **Correct `server.cfg` ordering.** The framework and `oxmysql` must both be initialised first:
    ```cfg
-   ensure nexus_notify
-   -- then the resources that consume it
-   ensure nexus_bounty
+   ensure oxmysql
+   ensure es_extended        -- or qb-core
+   -- then
    ensure nexus_multijob
    ```
-4. **Import no SQL.** There is nothing to import.
-5. **Adapt `config.lua`.** Set `DefaultPosition`, `DefaultScale`, `MinimalistMode` and `DefaultDuration` to the defaults you want new players to get, and review `Config.Styles` if you want your own colours.
-6. **Optional — use your own logo.** Drop your logo into `html/`, set `LogoFileName` to its filename and `UseLogoInsteadOfIcon = true`.
-7. **Optional — add your own sounds.** Drop `.wav`/`.ogg` files into `html/sounds/` and point the entries of `Config.Sounds` at them. `html/sounds/*` is already covered by the `files` block in the manifest, so no manifest edit is needed.
-8. **Restart.** A full server restart is recommended so other resources pick up the export.
-9. **Verify.** In game, run `/showpos` — you should get one notification of every configured type. Then run `/notifymove`, drag the panel, set a scale, and press **Save & Close**.
+5. **Configure the essentials in `config.lua`:**
+   - `Config.Framework` — `'esx'` or `'qbcore'`. **This is the one setting that must be right or nothing works.**
+   - `Config.Locale` — one of `es`, `en`, `de`, `fr`, `it`, `pt`, `zh`.
+   - `Config.MaxJobs` — the roster cap (recommended maximum `6`).
+   - `Config.OpenKey` — default `F5`.
+   - `Config.NotifyStyle` — `'native'`, `'esx'`, `'qb'` or `'ox'`.
+   - `Config.Theme` — `'purple'`, `'orange'`, `'green'`, `'red'`, `'blue'` or `'gold'`.
+   - `Config.UnemployedJob` — must match the off-duty job name your framework uses.
+6. **Restart.** A full server restart is recommended so the framework hooks register cleanly.
+7. **Start using it.** In game, press **F5** (or run **`/nexus_jobs`**). Your current job is captured automatically on that first open. Take a second job from any job centre and it will appear in the list.
+8. **Optional — rebind the key.** Players can rebind it themselves in *Settings → Key Bindings → FiveM*, where it appears under the label from the active locale's `keymap` string.
+9. **Optional — grant a job manually.** From the server console or as an admin in game: `/njgive 3 police 2`.
 
 ## 🔧 Configuration
 
-Everything lives in `config.lua`, which is listed in `escrow_ignore` and therefore ships unencrypted and fully editable.
-
-### Visual
+All settings live in `config.lua`, which is listed in `escrow_ignore` and ships unencrypted.
 
 | Config key | Type | Default | Description |
 |---|---|---|---|
-| `Config.DefaultPosition` | table `{x, y}` | `{ x = 99, y = 30 }` | Default anchor for players who have never moved their notifications, as a **percentage** of screen width (`x`) and height (`y`). A value above `50` is interpreted by the NUI as "anchored to the right / bottom edge", which flips the stacking direction and the transform origin. |
-| `Config.DefaultScale` | number | `1.0` | Default scale multiplier for players who have never scaled their notifications. `1.0` = 100%, `0.5` = 50%, `1.5` = 150%. The in-game slider clamps player choices to `0.5`–`2.0`. |
-| `Config.UseLogoInsteadOfIcon` | boolean | `false` | `true` renders `LogoFileName` in the icon bubble of every notification instead of the per-type SVG. `false` uses each type's `iconFile`. |
-| `Config.LogoFileName` | string | `'logo.png'` | Filename of the logo, resolved relative to `html/`. Must also be present in the manifest's `files` block (`html/logo.png` already is). |
-| `Config.EnableResetButton` | boolean | `true` | Shows the **Reset to Default** button inside the `/notifymove` panel. |
-| `Config.DefaultDuration` | number (ms) | `5000` | Duration applied when the caller does not pass a `duration`. `5000` = 5s. |
-| `Config.TestNotifyCommand` | string | `'showpos'` | Name of the always-available command that fires one notification per configured type so players can see where their stack sits. Registered without the `/`. |
-| `Config.MinimalistMode` | boolean | `false` | Default card style. `false` = full card (icon, title, message, progress bar). `true` = compact pill (icon + message only). |
-| `Config.AllowUserMinimalistToggle` | boolean | `true` | `true` shows the Minimalist Mode toggle switch inside the `/notifymove` panel so players can choose. `false` hides the toggle and also makes the `saveMinimalist` callback a no-op, locking everyone to `MinimalistMode`. |
+| `Config.Locale` | string | `'es'` | Language for the notification strings. One of `es`, `en`, `de`, `fr`, `it`, `pt`, `zh` — each is a file in `locales/`. An unknown value falls back to `es`. **Does not translate the NUI panel** — see Locales. |
+| `Config.Framework` | string | `'esx'` | `'esx'` or `'qbcore'`. Selects every framework branch in both `client/client.lua` and `server/server.lua`: how the player object is fetched, how the identifier is read (`identifier` vs `citizenid`), how jobs are set (`xPlayer.setJob` vs `Player.Functions.SetJob`), how labels are resolved, and which job-change hooks are registered. Any other value leaves the resource inert. |
+| `Config.Theme` | string | `'purple'` | NUI colour theme: `'purple'`, `'orange'`, `'green'`, `'red'`, `'blue'`, `'gold'`. Pushed to the NUI on open and applied as `<html data-theme="…">`. `'purple'` is the base `:root` palette (there is no separate `data-theme="purple"` block — any unrecognised value therefore also renders as purple). |
+| `Config.OpenKey` | string | `'F5'` | Key that opens the panel, passed to `RegisterKeyMapping` as the default binding. Changing it and restarting the resource applies the new default to players who have not rebound it themselves. |
+| `Config.MaxJobs` | number | `6` | Maximum jobs a player can hold. Enforced server-side before every insert; also sent to the NUI for the header counter. The config comment advises `6` as the practical maximum. |
+| `Config.MaxJobsOverrides` | table | `{}` (example commented out) | Per-player cap overrides, keyed by identifier. Matching is prefix-tolerant: the full identifier is tried first, then the bare hash after stripping any `prefix:`. Use the identifier format your framework uses (ESX: `license:…`; QBCore: the citizenid, e.g. `AB12345`). Enable `Config.Debug` to print the identifier the resource actually sees. |
+| `Config.AllowOffDuty` | boolean | `true` | `true` shows the **GO OFF-DUTY** footer button and lets the server honour an off-duty request. `false` hides the button and makes the server reject the request with the `offduty_unavailable` notification. |
+| `Config.UnemployedJob` | string | `'unemployed'` | Job name set when going off duty. Also used as a sentinel: a job with this name is **never** written to the roster, and the off-duty button is hidden while the player holds it. |
+| `Config.UnemployedGrade` | number | `0` | Grade set alongside `UnemployedJob`. |
+| `Config.JobLabels` | table | `{}` (example commented out) | Overrides the framework's job label, keyed by job name: `['police'] = 'Policía Nacional'`. Applied both when a job is captured into the database and when labels are resolved. Leave empty to use framework labels. |
+| `Config.GradeLabels` | table of tables | `{}` (example commented out) | Overrides grade labels, keyed by job name then by **numeric** grade: `['police'] = { [0]='Recluta', [1]='Agente', [2]='Sargento' }`. Leave empty to use framework grade labels. |
+| `Config.NotifyStyle` | string | `'native'` | Notification backend: `'native'` (GTA `SetNotificationTextEntry` / `DrawNotification`, with `~r~`/`~g~`/`~b~` colour prefixes applied by type), `'esx'` (`ESX.ShowNotification`), `'qb'` (`QBCore.Functions.Notify`), `'ox'` (`exports.ox_lib:notify`, title `Jobs`). Any unrecognised value falls through to `native`. |
+| `Config.Debug` | boolean | `false` | Prints server-side diagnostics: the identifier seen by `GetMaxJobs` when no override matched, and every roster register/update/cap-hit. Useful for filling in `MaxJobsOverrides`. Turn it off in production. |
 
-### Sounds
-
-| Config key | Type | Default | Description |
-|---|---|---|---|
-| `Config.EnableSounds` | boolean | `true` | Global sound switch. When `false`, no notification plays audio unless the caller explicitly passes `playSound = true`. |
-| `Config.DefaultVolume` | number | `0.7` | Volume passed to the NUI. *Note: the NUI currently constructs the `Audio` object without applying this value — see the FAQ.* |
-| `Config.Sounds` | table | see below | Maps a notification type name to a filename inside `html/sounds/`. A type with no entry here plays nothing. |
+### Nested table structures
 
 ```lua
-Config.Sounds = {
-    info    = 'opening-sound.wav',
-    success = 'opening-sound.wav',
-    warning = 'opening-sound.wav',
-    error   = 'opening-sound.wav',
-    admin   = 'opening-sound.wav',
+-- Per-player job cap. The key is the identifier; the value is that player's cap.
+-- Matching order: exact key, then the bare hash with the prefix stripped.
+Config.MaxJobsOverrides = {
+    ['license:1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b'] = 10,  -- ESX, full identifier
+    ['1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b']         = 10,  -- same player, bare hash
+    ['AB12345']                                          = 8,   -- QBCore citizenid
 }
-```
-The key must match the notification type name exactly. The value is resolved by the NUI as `sounds/<value>`, so the file must sit in `html/sounds/` and be covered by the manifest's `files { 'html/sounds/*' }` entry (it already is).
 
-### Styles
+-- Job label overrides. Key = job name as your framework knows it.
+Config.JobLabels = {
+    ['police']    = 'Los Santos Police Department',
+    ['ambulance'] = 'EMS',
+}
 
-| Config key | Type | Default | Description |
-|---|---|---|---|
-| `Config.Styles` | table of tables | 5 entries | The complete list of notification types. The key is the type name you pass as the `notificationType` argument. An unrecognised type falls back to `Config.Styles['info']`. |
-
-Each entry has exactly four fields:
-
-```lua
-Config.Styles = {
-    ['info'] = {
-        iconFile   = 'icons/info.svg',                 -- SVG path relative to html/
-        color      = '#3b82f6',                        -- accent: border, title, icon bubble, progress bar
-        background = 'rgba(20, 20, 26, 0.97)',         -- card background (rgba supported for transparency)
-        glow       = '0 0 15px rgba(59, 130, 246, 0.25)' -- full CSS box-shadow value
-    },
-    -- add your own:
+-- Grade label overrides. Key = job name, then NUMERIC grade level.
+-- Grades not listed fall back to the framework's own label.
+Config.GradeLabels = {
     ['police'] = {
-        iconFile   = 'icons/police.svg',
-        color      = '#1d4ed8',
-        background = 'rgba(10, 14, 30, 0.97)',
-        glow       = '0 0 18px rgba(29, 78, 216, 0.35)'
+        [0] = 'Cadet',
+        [1] = 'Officer',
+        [2] = 'Sergeant',
+        [3] = 'Lieutenant',
+        [4] = 'Chief',
     },
 }
 ```
 
-| Field | Type | Applied to | Notes |
-|---|---|---|---|
-| `iconFile` | string | `<img src>` in the icon bubble | Relative to `html/`. Must be inside `html/icons/` to be covered by the manifest's `files { 'html/icons/*' }` entry. Ignored when `UseLogoInsteadOfIcon = true`. |
-| `color` | string (hex) | card `border-color`, icon bubble `background-color`, title colour (full style), progress bar colour | In mini style the SVG is rendered with `filter: brightness(0)`, i.e. black on the coloured bubble, so pick a light-to-mid accent. |
-| `background` | string (CSS colour) | card `background-color` | Falls back to `rgba(20, 20, 26, 0.97)` in the NUI if omitted. |
-| `glow` | string (CSS box-shadow) | card `box-shadow` | Full shadow value, not just a colour. |
+### Label resolution order
 
-Shipped types: `info` (`#3b82f6`), `success` (`#00FF00`), `warning` (`#f59e0b`), `error` (`#f43f5e`), `admin` (`#9333ea`).
+Understanding this avoids most "wrong label" tickets. For both the job label and the grade label:
 
-### Debug
+1. `Config.JobLabels[job]` / `Config.GradeLabels[job][grade]` — your override always wins.
+2. The framework's label — `ESX.GetJob(job).label` and `.grades[grade].label` or `.name`; on QBCore, `QBCore.Shared.Jobs[job].label` and `.grades[tostring(grade)].name`.
+3. The raw job name, and `tostring(grade)` for the grade.
 
-| Config key | Type | Default | Description |
-|---|---|---|---|
-| `Config.EnableDebugCommands` | boolean | `false` | Master switch for the four debug commands below. **Leave this `false` in production** — the commands are registered unrestricted, so any player could run them. |
-| `Config.DebugTestAllCommand` | string | `'ndebug_all'` | Fires one notification per configured type, staggered 600ms. |
-| `Config.DebugPersistentCommand` | string | `'ndebug_persistent'` | Shows a persistent `warning` notification with id `debug_persistent`. |
-| `Config.DebugPersistentHide` | string | `'ndebug_hide'` | Removes the `debug_persistent` notification. |
-| `Config.DebugButtonsCommand` | string | `'ndebug_buttons'` | Shows a 15s `info` notification with **Accept** / **Deny** buttons wired to two example handlers that reply with a success/error notification. |
+Labels are resolved **at capture time** and stored in the `job_label` / `grade_label` columns, so the panel shows what was true when the job was granted. Renaming a job in your framework does not retroactively relabel existing rows — a promotion or re-hire refreshes them.
 
 ## 🌐 Locales & Editable Strings
 
-**Nexus Notify has no locale system, and it does not need one for its own output** — every string a player sees in a notification is the `title` and `text` *you* pass in from your own resource, in whatever language you want.
+**Languages included: 7** — `es`, `en`, `de`, `fr`, `it`, `pt`, `zh`. Each is one file in `locales/`, all are listed in `escrow_ignore` (`locales/*.lua`), and all seven define the same eight keys with no gaps.
 
-| Where | Strings | Editable without escrow? |
+| Where | What | Editable without escrow? |
 |---|---|---|
-| `config.lua` | All config values and comments. | ✅ Yes — in `escrow_ignore`. |
-| `html/index.html` | The `/notifymove` panel UI: `Notification Position & Scale`, `Drag to set your preferred position.`, `Notification Size (…%)`, `Minimalist Mode`, `Save & Close`, `Reset to Default`. | ✅ Yes — NUI files ship as plain assets and are never encrypted. Edit them directly to translate the move panel. |
-| `client.lua` | `'You have moved the notifys here'` (the `/showpos` message) and the four debug notification bodies. | ❌ No — `client.lua` is inside the escrow. |
-| `_resource.lua`, `client.lua`, `server.lua` | The resource-name validation messages. | ❌ No (`client.lua`/`server.lua`), ✅ `_resource.lua` is not escrow-ignored either. |
+| `locales/<lang>.lua` | All eight notification strings, per language. | ✅ Yes — `escrow_ignore` covers `locales/*.lua`. |
+| `config.lua` | Every setting, plus `JobLabels` / `GradeLabels`, i.e. all job and grade display names. | ✅ Yes — in `escrow_ignore`. |
+| `html/index.html`, `html/script.js`, `html/style.css` | **All NUI panel text** and the whole visual design. | ✅ Yes in practice — NUI assets ship as plain files and are never encrypted. ⚠️ But they are **not** part of the locale system. |
+| `locales.lua` | The `_T()` lookup helper (contains no strings). | ❌ No — not listed in `escrow_ignore`. |
+| `server/server.lua`, `client/client.lua` | Internal strings. | ❌ No — inside the escrow. |
 
-**Reported to the incident log:** the `/showpos` notification body, the four debug notification bodies and the resource-name error messages are hardcoded **inside the escrow** and cannot be translated by a customer. `_resource.lua` additionally prints its message in Spanish while the rest of the resource is in English. Neither affects normal gameplay — `/showpos` is a diagnostic command and the debug commands are off by default — but a `Config.Text = { ... }` block in `config.lua` would remove the limitation.
+The eight locale keys:
+
+| Key | Used for | Format args |
+|---|---|---|
+| `cant_delete_active` | Rejecting deletion of the active job. | — |
+| `job_added` | Telling a player a job was granted via `/njgive`. | `%s` = job label |
+| `job_deleted` | Confirming a deletion. | — |
+| `job_not_owned` | Rejecting a switch to a job not in the roster. | — |
+| `keymap` | The label shown in FiveM's own key-bindings menu. | — |
+| `no_permission` | `/njgive` used by a non-admin. | — |
+| `offduty_unavailable` | Off duty requested while `AllowOffDuty = false`. | — |
+| `player_not_found` | `/njgive` against an invalid player id. | — |
+
+Adding a language: copy `locales/en.lua` to `locales/<code>.lua`, change the table key on the first line (`Locales['<code>'] = {`), translate the eight values, and set `Config.Locale = '<code>'`. The `locales/*.lua` glob in both `shared_scripts` and `escrow_ignore` picks the new file up with no manifest edit.
+
+**Reported to the incident log — the NUI panel is not localised.** Every string the player reads inside the panel is hardcoded in `html/index.html` and `html/script.js` and is not covered by `locales/`. Worse, the hardcoded set **mixes Spanish and English**: `MY JOBS`, `GO OFF-DUTY`, `ACTIVE`, `DELETE JOB`, `This action cannot be reversed.`, `Cancel`, `Delete`, `Delete job`, `You cannot delete your active job`, `YOU ARE UNEMPLOYED`, `AVAILABLE JOBS` are English, while `SELECCIONAR`, `En servicio` and the `Grado <n>` grade fallback are Spanish. They are editable (NUI files are never encrypted) but changing language means editing the NUI by hand, and a server running `Config.Locale = 'en'` still shows two Spanish buttons. Also reported: two hardcoded Spanish strings **inside the escrow** in `server/server.lua` (the `/njgive` confirmation to the admin and the usage line), which a customer cannot change at all.
 
 ## 🔗 Compatibility
 
 | System | How it integrates |
 |---|---|
-| **Frameworks** | None required. The resource is framework-agnostic and never reads a player object, job or identifier. It works on ESX, QBCore, vRP, QBox or a bare server with no changes. |
-| **Databases** | None. Player preferences use FiveM's KVP store, scoped to the resource and to the individual player's machine. |
-| **Other notification resources** | Can coexist. Nexus Notify does **not** override `ESX.ShowNotification`, `QBCore.Functions.Notify`, `chat:addMessage` or the GTA natives, and it does not register itself as a drop-in replacement for `okokNotify` / `mythic_notify`. Resources keep using whatever they already use until you point them at `exports['nexus_notify']:Alert`. |
-| **Nexus Scripts catalogue** | Other Nexus resources select their notification backend through their own `Config.NotifySystem` / `Config.NotifyStyle` key and their own `functions.lua`; choosing the `nexus` / `nexus_notify` branch there makes them call this resource's `Alert` export. Nexus Notify itself needs no configuration for that. |
-| **GTA colour codes** | The NUI parses `~r~ ~g~ ~b~ ~y~ ~o~ ~p~` + `~s~` itself, so messages written for ESX/QBCore native notifications display correctly without rewriting them. |
-| **TextUI / target / keys / fuel / banking** | Not used. This resource has no world interaction at all. |
+| **Frameworks** | ESX and QBCore, selected with `Config.Framework` — no code editing. Every framework-specific operation is branched: identifier (`xPlayer.identifier` / `PlayerData.citizenid`), current job (`xPlayer.job` / `PlayerData.job`), setting a job (`xPlayer.setJob(job, grade)` / `Player.Functions.SetJob(job, grade)`), label lookup (`ESX.GetJob` / `QBCore.Shared.Jobs`), admin check (`xPlayer.getGroup()` / `QBCore.Functions.HasPermission`), and which job-change hooks are registered. |
+| **Database** | **`oxmysql` only.** The manifest loads `@oxmysql/lib/MySQL.lua` directly. `mysql-async` will not work without replacing that line and the four `MySQL.*` call sites. |
+| **Notifications** | Four backends via `Config.NotifyStyle`: `native` (GTA natives with automatic `~r~`/`~g~`/`~b~` prefixing by notification type), `esx` (`ESX.ShowNotification`), `qb` (`QBCore.Functions.Notify`), `ox` (`ox_lib`). All notifications are generated server-side and relayed to the client through `nexus_multijob:notify`, so the backend is resolved on the client. **`nexus_notify` is not one of the options** — reported in the incident log, since the rest of the catalogue offers it. |
+| **Job centres / hiring scripts** | Fully compatible with no integration work, as long as they set jobs through the framework (which fires `esx:setJob` / `QBCore:Server:SetJob`). A script that writes the `users`/`players` table directly without firing the event will not be captured — the player's job is still picked up the next time they open the panel, via `EnsureCurrentJobSaved`. |
+| **Other multijob resources** | Do **not** run two. Both would hook the same job-change events and fight over the active job. |
+| **Duty / on-off-duty systems (`qb-policejob`, ESX duty scripts)** | Compatible, but be aware they are a different concept: those toggle a duty flag on one job, while this switches *which* job is active. If your duty script defines separate off-duty jobs (`police` / `offpolice`), both will be captured as separate roster entries. |
+| **TextUI / target / keys / fuel / banking / inventory** | Not used. The panel is a standalone NUI opened by a keybind or a command; there is no world interaction, no blip and no NPC. |
+| **`ox_lib`** | Optional, only for `Config.NotifyStyle = 'ox'`. |
 
 ## 💻 Developer API
 
-> This is the section third-party developers integrate against. Everything below was read directly out of `client.lua`, `server.lua` and `html/script.js`.
+> Read directly out of `client/client.lua`, `server/server.lua`, `shared/functions.lua`, `locales.lua` and `html/script.js`.
 
 ### Client Exports
 
-Call these from any **client** script.
-
-| Export | Parameters | Returns | Description |
-|---|---|---|---|
-| `exports['nexus_notify']:Alert` | `title` (string), `text` (string), `duration` (number\|nil), `notificationType` (string\|nil), `playSound` (boolean\|nil), `options` (table\|nil) | nothing | Shows a notification to the local player. Returns early and does nothing if `title` *or* `text` is falsy. |
-| `exports['nexus_notify']:Remove` | `persistentId` (string) | nothing | Hides and forgets the persistent notification with that id. No-op if no notification with that id is currently tracked. |
-
-**Argument detail for `Alert`:**
-
-| Argument | Type | Default when `nil` | Notes |
-|---|---|---|---|
-| `title` | string | — | **Required.** Rendered in the accent colour in full style. **Not rendered at all in minimalist style** (`.notification-title { display: none }`). |
-| `text` | string | — | **Required.** The message body. Supports `~r~ ~g~ ~b~ ~y~ ~o~ ~p~` … `~s~`, `**bold**` and `*italic*`. Single-line: it is clipped with an ellipsis, not wrapped. |
-| `duration` | number (ms) | `Config.DefaultDuration` | Pass `0` together with `options.persistentId` for a notification that never auto-hides. |
-| `notificationType` | string | `'info'` | Any key of `Config.Styles`. An unknown value silently falls back to `info`. |
-| `playSound` | boolean | `Config.EnableSounds` | `true` forces sound even if `EnableSounds = false`; `false` forces silence; `nil` follows config. The actual file comes from `Config.Sounds[notificationType]` — a type missing from that table plays nothing even when `playSound = true`. |
-| `options` | table | `nil` | `{ persistentId = string, buttons = table }`. See below. |
-
-**`options.persistentId`** (string) — makes the notification persistent. Calling `Alert` again with the same id sends `action = 'update'` and rewrites the existing card's title and message in place instead of stacking a second card. Persistent notifications render **no progress bar**. Remove them with `:Remove(id)`.
-
-**`options.buttons`** (array of tables) — each entry:
-
-| Field | Type | Description |
-|---|---|---|
-| `label` | string | Button text. If `key` is set, the label is rewritten in place to `"<label> (<key>)"`. |
-| `key` | string | Optional key hint, e.g. `'F7'`. **See the FAQ: this only appends text to the label — the keybind itself is not currently wired up.** |
-| `event` | string | Name of the **client** event triggered via `TriggerEvent` when the button is clicked. |
-| `params` | any | Single value passed as the sole argument to that event. |
-
-Clicking any button hides the notification immediately. Button notifications always render in full style, even for a player who chose minimalist mode.
+**None.** `client/client.lua` declares no `exports(...)` and the manifest has no `exports` block. To open or close the panel from another resource, use the command or the events below.
 
 ```lua
--- Simple
-exports['nexus_notify']:Alert('Garage', 'Vehicle stored.', 4000, 'success', true)
+-- Open/close the panel from your own client code
+ExecuteCommand('nexus_jobs')
 
--- With markup, following the player's sound preference
-exports['nexus_notify']:Alert('Bank', 'You received ~g~$1,250~s~ from **payroll**.', 6000, 'info')
-
--- Persistent status card, updated in place
-exports['nexus_notify']:Alert('Delivery', 'Packages left: 4', 0, 'info', false, {
-    persistentId = 'delivery_progress'
-})
-exports['nexus_notify']:Alert('Delivery', 'Packages left: 3', 0, 'info', false, {
-    persistentId = 'delivery_progress'   -- updates the same card
-})
-exports['nexus_notify']:Remove('delivery_progress')
-
--- Buttons
-exports['nexus_notify']:Alert('Invite', 'Join the crew?', 15000, 'info', true, {
-    buttons = {
-        { label = 'Accept', key = 'F7', event = 'mycrew:accept', params = { id = 12 } },
-        { label = 'Deny',   key = 'F8', event = 'mycrew:deny',   params = { id = 12 } },
-    }
-})
+-- Or drive it directly: ask the server for the roster, which triggers the open
+TriggerServerEvent('nexus_multijob:getJobs')
 ```
 
 ### Server Exports
 
-Call these from any **server** script. Identical names, with `target` inserted as the **first** argument.
+**None.** `server/server.lua` declares no exports.
 
-| Export | Parameters | Returns | Description |
-|---|---|---|---|
-| `exports['nexus_notify']:Alert` | `target` (number), `title`, `text`, `duration`, `notificationType`, `playSound`, `options` | nothing | Relays to `nexus_notify:client:Alert` on the target. Validates the target first: if `target ~= -1` and `GetPlayerName(target)` is falsy, it prints `[nexus_notify] ERROR: Alert called with invalid target: <target>` and returns without sending. |
-| `exports['nexus_notify']:Remove` | `target` (number), `persistentId` (string) | nothing | Relays to `nexus_notify:client:Remove`. Same target validation and same error message pattern (`Remove called with invalid target`). |
+`shared/functions.lua` *defines* four globals that look like an integration surface — `GetActiveJobs()`, `SetActiveJob(playerId, jobData)`, `CompleteJob(playerId, reward)` and `CancelJob(playerId)` — **but that file is not loaded by `fxmanifest.lua`** (it appears in no `shared_scripts` / `client_scripts` / `server_scripts` entry). They are therefore **not callable** and the `multijob:jobCompleted` / `multijob:jobCancelled` events they would emit are never fired. Do not integrate against them. This is logged as the most important incident for this resource.
 
-| `target` value | Effect |
-|---|---|
-| a player's server id | Sends to that player only. |
-| `-1` | Broadcasts to **all** connected players. |
-| anything else / a disconnected id | Nothing is sent; an error line is printed to the server console. |
+To read a player's roster from your own server code, query the table directly:
 
 ```lua
--- One player
-exports['nexus_notify']:Alert(source, 'Shop', 'Purchase complete.', 4000, 'success', true)
-
--- Everyone
-exports['nexus_notify']:Alert(-1, 'Server', 'Restart in ~r~5 minutes~s~.', 10000, 'warning', true)
-
--- Persistent, server-driven, then cleared
-exports['nexus_notify']:Alert(source, 'Jail', 'Time left: 10 min', 0, 'error', false, {
-    persistentId = 'jail_timer'
-})
-exports['nexus_notify']:Remove(source, 'jail_timer')
-
--- Buttons: the events fire on the receiving player's CLIENT
-exports['nexus_notify']:Alert(source, 'Admin', 'Report assigned to you.', 20000, 'admin', true, {
-    buttons = {
-        { label = 'Teleport', key = 'F7', event = 'myadmin:tpToReport', params = reportId },
-    }
-})
+MySQL.query('SELECT job, job_grade, job_label, grade_label FROM nexus_multijob WHERE identifier = ?',
+    { identifier }, function(rows)
+        for _, row in ipairs(rows or {}) do
+            print(row.job_label, row.grade_label)
+        end
+    end)
 ```
 
 ### Events — Emitted
 
 | Event | Side | Payload | When |
 |---|---|---|---|
-| `nexus_notify:client:Alert` | server → client | `title, text, duration, type, playSound, options` | Emitted by the server-side `Alert` export after target validation. Received by `client.lua`, which forwards it straight into the client `Alert` export. |
-| `nexus_notify:client:Remove` | server → client | `persistentId` | Emitted by the server-side `Remove` export. |
-| *(caller-defined)* | client | the button's `params` value | `TriggerEvent(data.event, data.params)` fired from the `buttonClick` NUI callback when a player clicks a notification button. The event name and payload are entirely yours. |
-| `chat:addSuggestion` | client | `'/<command>', '<description>'` | Emitted once at start for each of the four debug commands, only when `Config.EnableDebugCommands = true`. |
-| `nexus_notify:debug:accept` / `nexus_notify:debug:deny` | client | `{}` | Example button events used only by the `ndebug_buttons` debug command. Handled internally; do not rely on them. |
+| `nexus_multijob:getJobs` | client → server | *(none)* | `OpenMenu()` — fired when the player presses the open key or runs `/nexus_jobs` while the panel is closed. The server answers with `receiveJobs`. |
+| `nexus_multijob:setJob` | client → server | `job` (string), `grade` (number) | The *Select* button in the NUI (`setJob` callback) and the *Go Off-Duty* button (`offDuty` callback, which sends `Config.UnemployedJob` / `Config.UnemployedGrade`). |
+| `nexus_multijob:removeJob` | client → server | `job` (string) | Confirming a deletion in the confirmation drawer (`removeJob` callback). |
+| `nexus_multijob:receiveJobs` | server → client | `jobs` (array of rows), `currentJob` (string), `maxJobs` (number) | Answer to `getJobs`. Opens the panel. Ignored by the client if the panel is already open. |
+| `nexus_multijob:refreshJobs` | server → client | `jobs`, `currentJob`, `maxJobs` | Pushed by `PushRefresh` after a successful job switch (50 ms after the framework call) or a successful deletion. Ignored by the client if the panel is closed. |
+| `nexus_multijob:notify` | server → client | `msg` (string), `ntype` (string) | Every server-side notification. `ntype` is `'info'`, `'success'` or `'error'`. |
+
+`jobs` rows are raw `nexus_multijob` table rows: `{ id, identifier, job, job_grade, job_label, grade_label, added_at }`. `currentJob` is the **job name only** — `GetCurrentJob` returns `(name, grade)` but only the first value is forwarded.
 
 ### Events — Listened
 
 | Event | Side | Payload | Purpose |
 |---|---|---|---|
-| `nexus_notify:client:Alert` | client | `title, text, duration, type, playSound, options` | Entry point for server-originated notifications. **You can trigger this directly** with `TriggerClientEvent` if you prefer events to exports — it has the exact same effect as the client export. |
-| `nexus_notify:client:Remove` | client | `persistentId` | Entry point for server-originated removals. |
+| `nexus_multijob:getJobs` | server | *(none)* | Runs `EnsureCurrentJobSaved` to capture the player's current job if missing, then replies with `receiveJobs`. |
+| `nexus_multijob:setJob` | server | `job`, `grade` | Rejects off duty when `AllowOffDuty = false`; for any other job, verifies the player actually owns it (`JobExists`) and replies `job_not_owned` if not; then calls the framework's set-job function and schedules a `PushRefresh` 50 ms later. |
+| `nexus_multijob:removeJob` | server | `job` | Refuses if `job` is the player's active job (notifies `cant_delete_active` and resyncs the UI); otherwise deletes the row and, if a row was affected, notifies `job_deleted` and pushes a refresh. |
+| `nexus_multijob:refreshJobs` | server | *(none)* | A client-callable resync that just re-sends the player's own roster. (Note: the same event name is also used server → client; the two directions are independent in FiveM.) |
+| `nexus_multijob:receiveJobs` | client | `jobs, currentJob, maxJobs` | Sets `isMenuOpen`, grabs NUI focus and sends `open` to the NUI with `jobs`, `currentJob`, `allowOffDuty`, `maxJobs` and `theme`. |
+| `nexus_multijob:refreshJobs` | client | `jobs, currentJob, maxJobs` | Sends `refresh` to the NUI for a DOM-diff update. Dropped if the panel is closed. |
+| `nexus_multijob:notify` | client | `msg, ntype` | Routes to the backend chosen by `Config.NotifyStyle`. |
+| `esx:getSharedObject` | client + server | callback | Framework bootstrap when `Config.Framework = 'esx'`. |
+| `esx:setJob` | server | `source, job, lastJob` | **Automatic capture.** Upserts the new job into the roster with resolved labels. |
+| `esx:playerLoaded` | server | `source, xPlayer, isNew` | Captures the job the player logs in with, unless it is `Config.UnemployedJob`. |
+| `QBCore:Server:SetJob` | server | `source, job, grade` | **Automatic capture** on QBCore. ⚠️ Flagged in the incident log — verify this event name against your QBCore version, and note it is registered with `RegisterNetEvent`. |
+| `QBCore:Server:PlayerLoaded` | server | `Player` | Captures the job the player logs in with on QBCore. |
 
-> There is **no** `nexus_notify:server:*` event. Server-side usage goes through the exports; the server registers no net events, so a malicious client cannot make another player show a notification through this resource.
+### Commands & Key Mapping
+
+| Command | Side | Restricted | Purpose |
+|---|---|---|---|
+| `/nexus_jobs` | client | No | Toggles the panel. Also the command bound by `RegisterKeyMapping`. |
+| `/njgive [playerid] [job] [grade]` | server | No (permission-checked in code) | Adds a job to a player's roster. Allowed from the server console (`source == 0`), for ESX `admin`/`superadmin`, or for QBCore `admin`. Non-admins get the `no_permission` notification. `grade` defaults to `0`. Does **not** set the job as active — it only adds it to the roster, and it is still subject to `MaxJobs`. |
+
+`RegisterKeyMapping('nexus_jobs', _T('keymap'), 'keyboard', Config.OpenKey)` — the panel key appears in FiveM's own key-bindings menu under the active locale's `keymap` label, so each player can rebind it.
 
 ### NUI Callbacks
 
-Internal, but documented because they are part of the client surface if you fork the NUI.
-
-| Callback | Posted from | Payload | Effect in `client.lua` |
-|---|---|---|---|
-| `savePosition` | Save & Close button | `{ x, y, scale }` | Writes KVP `nexus_notify_pos_x`, `nexus_notify_pos_y`, `nexus_notify_scale`; closes move mode; releases NUI focus. |
-| `saveMinimalist` | Minimalist toggle | `{ value = boolean }` | Writes KVP `nexus_notify_minimalist` as `1`/`0` — **only if** `Config.AllowUserMinimalistToggle` is `true`. |
-| `resetPosition` | Reset to Default button | `{}` | Responds with `{ pos = Config.DefaultPosition, scale = Config.DefaultScale }`. Note this only repositions the *panel* in the NUI; nothing is persisted until the player presses Save. |
-| `buttonClick` | A notification button | `{ event, params }` | `TriggerEvent(data.event, data.params)`. |
+| Callback | Payload | Effect in `client/client.lua` |
+|---|---|---|
+| `close` | `{}` | Clears `isMenuOpen` and releases NUI focus. Fired by the X button and by the ESC handler in `index.html`. |
+| `setJob` | `{ job, grade }` | `TriggerServerEvent('nexus_multijob:setJob', job, grade)`. The panel stays open; the server's refresh moves the `ACTIVE` badge. |
+| `removeJob` | `{ job }` | `TriggerServerEvent('nexus_multijob:removeJob', job)`. |
+| `offDuty` | `{}` | `TriggerServerEvent('nexus_multijob:setJob', Config.UnemployedJob, Config.UnemployedGrade)`. |
 
 ### NUI Messages (Lua → JavaScript)
 
-| Action | Payload | Handled by |
+| Action | `data` payload | Effect |
 |---|---|---|
-| `show` | `{ data = notificationData }` | `showNotification()` — builds and inserts the card. |
-| `update` | `{ data = notificationData }` | `updateNotification()` — rewrites `.notification-title` (`textContent`) and `.notification-message` (`innerHTML`, through `formatText`) of the card matching `data.persistentId`. |
-| `hide` | `{ id = persistentId }` | `hideNotification()` — adds `.hiding`, then removes the node after the exit animation (400ms full / 380ms mini). |
-| `moveMode` | `{ enabled, currentPos, currentScale, showReset, allowToggle, minimalist }` | `toggleMoveMode()` — shows/hides the drag panel. |
-| `setMinimalist` | `{ value }` | Handled in `html/script.js` but **never sent by `client.lua`** — a dead branch. Noted in the incident log. |
-
-The `notificationData` table pushed on `show` / `update`:
-
-```lua
-{
-    type         = notificationType,            -- resolved type name
-    title        = title,
-    text         = text,
-    duration     = duration or Config.DefaultDuration,
-    playSound    = soundFile or false,          -- filename inside html/sounds/, or false
-    volume       = Config.DefaultVolume,
-    useLogo      = Config.UseLogoInsteadOfIcon,
-    logoFile     = Config.LogoFileName,
-    position     = userPosition,                -- the player's saved {x, y}
-    scale        = userScale,                   -- the player's saved scale
-    persistentId = options and options.persistentId,
-    buttons      = options and options.buttons,
-    hasKeybinds  = hasKeybinds,
-    style        = Config.Styles[notificationType],  -- the whole style table
-    minimalist   = userMinimalist,
-}
-```
+| `open` | `{ jobs, currentJob, allowOffDuty, maxJobs, theme }` | Applies `data-theme`, merges into `state`, full render, unhides the panel. |
+| `refresh` | `{ jobs, currentJob, allowOffDuty, maxJobs }` | DOM-diff render: animates out removed cards, animates in new ones, syncs the rest. **Does not resend `theme`.** |
+| `close` | `{}` | Plays the `panelOut` animation and hides the panel without posting back to Lua. |
 
 ### Editable Functions
 
-**There is no `functions.lua` in this resource**, and it needs none: Nexus Notify is the notification backend, not a consumer of one, so it has no external system to branch on. The customisation surface is `config.lua` (types, colours, icons, sounds, defaults) plus the NUI files in `html/`, all of which ship unencrypted.
+**`shared/functions.lua` exists but is not wired into the resource.** It is absent from every script list in `fxmanifest.lua`, so none of it runs. For completeness, what it *would* provide:
 
-`exports.lua` exists in the folder and is listed in `escrow_ignore`, but it is **not** loaded by any `shared_scripts` / `client_scripts` / `server_scripts` entry in `fxmanifest.lua`. It is a plain-text API cheat-sheet shipped for the customer to read — it is intentionally not executable code (running it would error, since it calls the exports with undefined variables). Noted in the incident log so it is not mistaken for a dead script.
+| Function | Signature | Called from | Purpose |
+|---|---|---|---|
+| `T` | `T(key, ...)` | nowhere (dead) | A second translation helper that loads `locales/<lang>.lua` with `LoadResourceFile` + `load()` into a `Lang` table. Duplicates `_T` from `locales.lua`. |
+| `GetActiveJobs` | `GetActiveJobs()` → table | nowhere (dead) | Would return the in-memory `ActiveJobs` table. |
+| `SetActiveJob` | `SetActiveJob(playerId, jobData)` | nowhere (dead) | Would store a job assignment in memory. |
+| `CompleteJob` | `CompleteJob(playerId, reward)` | nowhere (dead) | Would emit `multijob:jobCompleted(playerId, reward)` and clear the entry. |
+| `CancelJob` | `CancelJob(playerId)` | nowhere (dead) | Would emit `multijob:jobCancelled(playerId)` and clear the entry. |
+
+The function that **is** live is in `locales.lua` (loaded as a shared script, so available on client and server):
+
+| Function | Signature | Called from | Purpose |
+|---|---|---|---|
+| `_T` | `_T(key, ...)` → string | `client/client.lua` (`keymap`), `server/server.lua` (all notifications) | Resolves `key` against `Locales[Config.Locale]`, then `Locales['es']`, then returns the key itself. Extra arguments are passed to `string.format` inside a `pcall` (`nil` args become `''`), so a malformed format string returns the raw template instead of erroring. |
+
+Because `locales.lua` is **not** in `escrow_ignore`, `_T` itself is encrypted — but the strings it reads (`locales/*.lua`) are not, so translation still works fully. Noted in the incident log as a standards deviation.
 
 ### Database Schema
 
-**None.** This resource creates no tables and ships no `.sql` file. All persistence is FiveM KVP:
+One table, created by `nexus_multijob.sql`:
 
-| KVP key | Type | Written by | Holds |
-|---|---|---|---|
-| `nexus_notify_pos_x` | int | `savePosition` | Anchor X as a percentage of screen width. |
-| `nexus_notify_pos_y` | int | `savePosition` | Anchor Y as a percentage of screen height. |
-| `nexus_notify_scale` | float | `savePosition` | Scale multiplier. |
-| `nexus_notify_minimalist` | int (`0`/`1`) | `saveMinimalist` | Whether the player chose the compact pill style. |
+```sql
+CREATE TABLE IF NOT EXISTS `nexus_multijob` (
+    `id`          INT(11)      NOT NULL AUTO_INCREMENT,
+    `identifier`  VARCHAR(60)  NOT NULL,
+    `job`         VARCHAR(50)  NOT NULL DEFAULT 'unemployed',
+    `job_grade`   INT(11)      NOT NULL DEFAULT 0,
+    `job_label`   VARCHAR(100) NOT NULL DEFAULT 'Unemployed',
+    `grade_label` VARCHAR(100) NOT NULL DEFAULT 'None',
+    `added_at`    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `unique_job` (`identifier`, `job`),
+    KEY `identifier` (`identifier`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+```
 
-KVP is stored client-side per machine, so a player's layout does not follow them to another PC, and it is not readable from the server.
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `INT(11)` AI PK | Surrogate key; not used by the resource's logic. |
+| `identifier` | `VARCHAR(60)` | ESX `xPlayer.identifier` (e.g. `license:…`, `char1:…`) or QBCore `citizenid`. 60 chars comfortably fits both. |
+| `job` | `VARCHAR(50)` | Framework job name. Never `Config.UnemployedJob` — `RegisterJob` returns early for it. |
+| `job_grade` | `INT(11)` | Numeric grade level, as stored by the framework. |
+| `job_label` | `VARCHAR(100)` | Display label resolved at capture time (override → framework → raw name). |
+| `grade_label` | `VARCHAR(100)` | Grade display label resolved at capture time. |
+| `added_at` | `TIMESTAMP` | Capture time. **Also the sort order of the panel** — `ORDER BY added_at ASC`, so cards are listed oldest job first. Not updated on a promotion. |
+
+| Index | Purpose |
+|---|---|
+| `UNIQUE KEY unique_job (identifier, job)` | Guarantees one row per player per job, so a re-hire or promotion can only update. |
+| `KEY identifier` | Supports the roster lookup and the count query. |
+
+Queries used (all through `oxmysql`): `SELECT *` ordered by `added_at` (roster), `SELECT id` (ownership check), `SELECT COUNT(*)` (cap check), `INSERT` (new job), `UPDATE` (promotion), `DELETE` (removal, issued through `MySQL.update` to read the affected-row count).
 
 ### Integration Example
 
-A delivery job that uses a persistent notification as a live progress HUD, a button notification to offer a bonus run, and a broadcast when the route is finished.
+A dispatch resource that gates its features on the roster and reacts to job switches, using only the real surface — the framework's own job events plus a direct roster query.
 
 ```lua
--- ───────────────────────── client.lua of your resource
-local remaining = 5
-local HUD_ID    = 'mydelivery_hud'
-
-local function hasNotify()
-    return GetResourceState('nexus_notify') == 'started'
-end
-
-local function notify(title, text, duration, nType, sound, options)
-    if hasNotify() then
-        exports['nexus_notify']:Alert(title, text, duration, nType, sound, options)
-    else
-        SetNotificationTextEntry('STRING')
-        AddTextComponentString(text)
-        DrawNotification(false, false)
-    end
-end
-
--- Persistent HUD: same id every time, so the card updates instead of stacking
-local function refreshHud()
-    notify('Delivery Route', ('Packages left: ~y~%d~s~'):format(remaining), 0, 'info', false, {
-        persistentId = HUD_ID
-    })
-end
-
-RegisterNetEvent('mydelivery:packageDelivered', function()
-    remaining = remaining - 1
-    if remaining > 0 then
-        refreshHud()
-    else
-        if hasNotify() then exports['nexus_notify']:Remove(HUD_ID) end
-        notify('Delivery Route', 'Route complete. Head back to the depot.', 6000, 'success', true)
-    end
-end)
-
--- Offer a bonus run with buttons
-RegisterNetEvent('mydelivery:offerBonus', function(bonusId)
-    notify('Bonus Run', 'A rush order is available. ~g~+$500~s~', 20000, 'warning', true, {
-        buttons = {
-            { label = 'Take it', key = 'F7', event = 'mydelivery:acceptBonus', params = bonusId },
-            { label = 'Pass',    key = 'F8', event = 'mydelivery:declineBonus', params = bonusId },
-        }
-    })
-end)
-
-AddEventHandler('mydelivery:acceptBonus', function(bonusId)
-    TriggerServerEvent('mydelivery:claimBonus', bonusId)
-end)
-
-AddEventHandler('mydelivery:declineBonus', function()
-    notify('Bonus Run', 'Offer declined.', 3000, 'info')
-end)
-
--- Make sure the HUD never survives a resource stop
-AddEventHandler('onResourceStop', function(res)
-    if res == GetCurrentResourceName() and hasNotify() then
-        exports['nexus_notify']:Remove(HUD_ID)
-    end
-end)
-
 -- ───────────────────────── server.lua of your resource
-RegisterNetEvent('mydelivery:claimBonus', function(bonusId)
+-- Does this player have police in their Nexus Multijob roster,
+-- whether or not it is the job they are currently wearing?
+local function hasRosterJob(identifier, job, cb)
+    MySQL.scalar('SELECT job_grade FROM nexus_multijob WHERE identifier = ? AND job = ?',
+        { identifier, job }, function(grade) cb(grade ~= nil, grade) end)
+end
+
+RegisterNetEvent('mydispatch:requestPanel', function()
     local src = source
-    -- … validate and pay …
-    exports['nexus_notify']:Alert(src, 'Bonus Run', 'Bonus paid: ~g~$500~s~', 5000, 'success', true)
-    exports['nexus_notify']:Alert(-1, 'Depot', 'A rush order was just claimed.', 5000, 'info', false)
+    local xPlayer = ESX.GetPlayerFromId(src)
+    if not xPlayer then return end
+
+    hasRosterJob(xPlayer.identifier, 'police', function(owns, grade)
+        if not owns then
+            exports['nexus_notify']:Alert(src, 'Dispatch', 'You are not on the force.', 4000, 'error')
+            return
+        end
+        -- They own police even if currently working as a taxi driver
+        TriggerClientEvent('mydispatch:openPanel', src, grade)
+    end)
 end)
-```
 
-Adding your own notification type takes no code at all — append to `Config.Styles`, drop the SVG in `html/icons/`, and call it:
+-- React to a switch made through the Multijob panel.
+-- The panel calls the framework's own setter, so the framework event fires
+-- normally — hook THAT, not a Multijob event (there is no public one).
+AddEventHandler('esx:setJob', function(source, job, lastJob)
+    if job.name == 'police' then
+        TriggerClientEvent('mydispatch:enable', source, job.grade)
+    elseif lastJob and lastJob.name == 'police' then
+        TriggerClientEvent('mydispatch:disable', source)
+    end
+end)
 
-```lua
--- config.lua
-['heist'] = {
-    iconFile   = 'icons/heist.svg',
-    color      = '#facc15',
-    background = 'rgba(26, 20, 6, 0.97)',
-    glow       = '0 0 18px rgba(250, 204, 21, 0.35)'
-},
--- optionally: Config.Sounds.heist = 'alarm.wav'
+-- Grant a job and let Multijob capture it automatically:
+-- just use the framework setter, no Multijob call needed.
+RegisterNetEvent('mydispatch:hire', function(targetId)
+    local xTarget = ESX.GetPlayerFromId(targetId)
+    if xTarget then
+        xTarget.setJob('police', 0)   -- fires esx:setJob → captured into the roster
+    end
+end)
 
--- anywhere
-exports['nexus_notify']:Alert('Heist', 'Vault drilling started.', 8000, 'heist', true)
+-- ───────────────────────── client.lua of your resource
+-- Open the Multijob panel from your own UI
+RegisterNetEvent('mydispatch:openJobSwitcher', function()
+    ExecuteCommand('nexus_jobs')
+end)
 ```
 
 ## ❓ FAQ
 
-**The `key` on my notification buttons does nothing — the button works when clicked, but pressing the key does not.**
-Correct, and this is a current limitation rather than a misconfiguration. Setting `key` appends `" (F7)"` to the button label and flags the notification as persistent internally, but the client keybind-listening thread in `client.lua` has no body yet — its inner loop over the tracked notifications is empty. Use the buttons with the mouse, or register your own `RegisterKeyMapping` / `IsControlJustPressed` handler in your resource and call `exports['nexus_notify']:Remove(id)` yourself.
+**I set `Config.Framework` and nothing happens — no panel, no notifications.**
+The value must be exactly lowercase `'esx'` or `'qbcore'`. `'ESX'`, `'QBCore'` and `'qb-core'` all fall through every branch in both the client and the server, leaving `Framework` nil and the resource inert with no error. This is the single most common cause of "the script does nothing".
 
-**I passed a `persistentId` *and* buttons with keys, and now `Remove(myId)` does not remove it.**
-When any button has a `key`, the resource overwrites your `persistentId` with an internally generated one (`_keybind_notify_<random>`). Your own id is never registered, so `Remove` cannot find it. If you need to remove a notification by id, do not set `key` on its buttons.
+**I get MySQL errors about `MySQL.query` being nil, or the resource fails to start.**
+`oxmysql` is a hard requirement — `fxmanifest.lua` loads `@oxmysql/lib/MySQL.lua`. **`mysql-async` is not supported here**, unlike some other Nexus resources. Install `oxmysql` and make sure it is `ensure`d before `nexus_multijob`.
 
-**New players do not get `Config.DefaultPosition` — notifications appear in the top-left corner.**
-This is a known bug, not a config mistake. The resource reads the saved position with `GetResourceKvpInt`, which returns `0` (not `nil`) when the key has never been written, so the `or Config.DefaultPosition.x` fallback never runs and a brand-new player ends up at `0, 0`. Workaround: tell players to run `/notifymove` once and press **Save & Close**, which writes real KVP values. It is listed in the incident log for a code fix.
+**The panel is empty even though I have a job.**
+The roster fills from job-change events, so a job granted before you installed the resource was never captured. Opening the panel is supposed to fix that — `EnsureCurrentJobSaved` captures your current job on open. If it stays empty: check `Config.Debug = true` output for the identifier, confirm the `nexus_multijob` table exists and the SQL was imported into the *right* database, and confirm your current job is not `Config.UnemployedJob` (that job is deliberately never stored).
 
-**A player turned minimalist mode off but it keeps coming back on.**
-Same class of bug. The saved value `0` (meaning "off") is treated as "nothing saved", so the code falls back to `Config.MinimalistMode`. If you have `MinimalistMode = true` in config, players cannot persistently opt out. Set `MinimalistMode = false` as the server default and let players opt *in*, which does persist correctly.
+**A job granted by my job centre never appears.**
+It only gets captured if the hiring script sets the job through the framework (`xPlayer.setJob` / `Player.Functions.SetJob`), which is what fires `esx:setJob` / the QBCore job event. A script that writes the `users` or `players` table directly bypasses the hook; the job will still be picked up the next time the player opens the panel.
 
-**My notification titles are invisible.**
-You (or the player) are in minimalist mode. The pill style deliberately hides the title (`.notification-title { display: none }`) and shows only the icon and the message. Put anything essential in `text`, not `title`, if your server runs `MinimalistMode = true`.
+**On QBCore, jobs are only captured on login and on first panel open, never when a job is granted mid-session.**
+Likely the known issue logged in the incident report: the resource hooks `QBCore:Server:SetJob`, and QBCore versions differ on the exact event name (`QBCore:Server:OnJobUpdate` is the common one). Verify the event your `qb-core` build fires on `SetJob` and align it. Players will still get their job through `EnsureCurrentJobSaved` on the next panel open, so nothing is lost permanently.
 
-**Long messages get cut off with "…".**
-By design. Both styles set `white-space: nowrap` with `text-overflow: ellipsis`, so notifications are strictly single-line. Split long content across two notifications, or use a persistent notification that you update.
+**`Config.MaxJobsOverrides` is not working for a player.**
+Turn on `Config.Debug` and have the player open the panel; the server prints the exact identifier it sees. Paste that identifier verbatim as the key. The matcher also tries the bare hash with the `prefix:` stripped, so either form works — but a typo or a different character set will not.
 
-**`Config.DefaultVolume` has no effect.**
-The volume is sent to the NUI in the payload but `html/script.js` creates the sound with `new Audio('sounds/' + file).play()` without assigning `.volume`. Until that is wired up, adjust loudness in the audio file itself. Logged as an incident.
+**The "GO OFF-DUTY" button stays visible while I am already unemployed.**
+It hides only when the active job name is literally `unemployed`. The NUI compares against the hardcoded string `'unemployed'`, not against `Config.UnemployedJob`, so if you changed that setting to something else (`'civil'`, `'offduty'`) the button no longer hides. Logged as an incident; either keep `Config.UnemployedJob = 'unemployed'` or edit the comparison in `html/script.js`.
 
-**No sound plays for one of my notification types.**
-The type must have an entry in `Config.Sounds` *and* the file must exist in `html/sounds/`. A type present in `Config.Styles` but absent from `Config.Sounds` is silent even with `playSound = true`, because the resource resolves the filename from `Config.Sounds[notificationType]`.
+**I cannot delete a job — the bin button is greyed out.**
+That is the active-job protection. Select a different job first, then delete the old one. The server enforces this too, so a client-side bypass fails with the `cant_delete_active` notification.
 
-**I renamed the folder and the move menu, the reset button and all notification buttons stopped working.**
-The folder must be exactly `nexus_notify`. `_resource.lua` aborts the resource outright on a mismatch, and even if it did not, `html/script.js` posts its callbacks to the hardcoded URL `https://nexus_notify/...`. Rename it back.
+**Two of the buttons are in Spanish even though I set `Config.Locale = 'en'`.**
+Known limitation, logged as an incident: the locale files only cover the eight notification strings. The panel's own text lives in `html/index.html` and `html/script.js`, where `SELECCIONAR`, `En servicio` and the `Grado <n>` grade fallback are hardcoded in Spanish while the rest is in English. NUI files are never encrypted, so you can edit them directly — search `html/script.js` for those three strings.
 
-**Do I have to replace every `ESX.ShowNotification` call in my other scripts?**
-No. Nexus Notify does not hijack framework notifications — it adds a parallel API. Existing calls keep going to your framework. Migrate resource by resource by swapping the call for `exports['nexus_notify']:Alert`, or, for Nexus Scripts resources, just select the `nexus` branch in that resource's own notification config key.
+**Grades show as a bare number, or as "Grado 2".**
+The grade label could not be resolved from the framework, so it fell back. Check the job exists in `ESX.GetJob` / `QBCore.Shared.Jobs` with that grade defined, or set the label explicitly in `Config.GradeLabels['<job>'][<grade>]`. Note the key must be the **numeric** grade (`[2]`), not a string (`['2']`).
 
-**Can the server remove a persistent notification from every player at once?**
-Yes: `exports['nexus_notify']:Remove(-1, 'my_id')`.
+**I promoted a player but the panel still shows the old grade.**
+The roster row is updated on the framework's job event, and the panel only refreshes while it is open. Close and reopen the panel. If the promotion was done by writing the database directly, no event fired and the roster was not updated.
 
-**Notifications stack downward but my anchor is at the bottom of the screen.**
-They should not — the NUI flips `flex-direction` and prepends new cards when `y > 50`. If stacking looks wrong, the player likely saved a position with `y` just under `50`. Have them run `/notifymove` and drag further toward the edge.
+**Pressing F5 sometimes does nothing, or the menu opens from an unrelated input.**
+The resource both registers `F5` through `RegisterKeyMapping` *and* polls for the key in a loop. That polling loop uses an incorrect control-id table and checks only every 500 ms while the panel is closed, so it both misses real presses and can respond to the wrong input. The reliable way in is the keymapping (press the key, or rebind it in *Settings → Key Bindings → FiveM*) or the `/nexus_jobs` command. Logged as an incident.
 
-**Is anything stored server-side?**
-No. Player layout preferences live in client-side KVP only. They do not follow the player to a different computer and cannot be read, reset or migrated from the server.
+**Can a player set themselves to a higher grade than they earned?**
+The server verifies the player **owns** the job before switching, but it takes the grade from the client without checking it against the stored `job_grade`. A player who owns `police` at grade 0 can therefore request `police` at a higher grade. This is flagged as the highest-priority security item in the incident report — review it before running the resource on a live server with sensitive jobs.
+
+**`/njgive` says I have no permission even though I am an admin.**
+ESX checks `xPlayer.getGroup()` for exactly `admin` or `superadmin` — a custom group name (`moderator`, `owner`, `dev`) is rejected. QBCore checks `QBCore.Functions.HasPermission(source, 'admin')`. From the server console the check is bypassed entirely, so `/njgive 3 police 2` always works there.
+
+**`/njgive` added the job but did not make it active.**
+By design — it only adds to the roster. The player opens the panel and selects it.
+
+**Can I run this alongside another multijob resource?**
+No. Both would hook the same job-change events and compete over the active job.
+
+**Does the panel work while dead, in a vehicle, or in another menu?**
+There is no state gate at all — the panel opens whenever the key is pressed. Add your own check if you need to block it during certain activities.
+
+**What order are the job cards in?**
+Oldest captured job first (`ORDER BY added_at ASC`). `added_at` is set on first capture and never updated, so the order is stable across promotions.
 
 ### Before opening a ticket
 
-- Make sure the resource's name is exactly **`nexus_notify`**.
-- Make sure you are using the latest version of the resource (**3.1.1**).
-- Confirm `nexus_notify` starts **before** the resource that is calling its exports, and that `GetResourceState('nexus_notify') == 'started'` at the moment you call them.
-- Run `/showpos` in game: if you see one notification per configured type, the resource itself is fine and the problem is in the calling resource.
-- If a type renders wrong, check that its `Config.Styles` entry has all four fields and that the `iconFile` exists in `html/icons/`.
+- Make sure the resource's name is exactly **`nexus_multijob`**.
+- Make sure you are using the latest version of the resource (**1.0.0**).
+- Confirm `Config.Framework` is exactly `'esx'` or `'qbcore'` — lowercase.
+- Confirm `oxmysql` is installed and `ensure`d **before** `nexus_multijob`, and that `nexus_multijob.sql` was imported into the database your server actually uses.
+- Confirm your framework (`es_extended` / `qb-core`) starts before this resource.
+- Set `Config.Debug = true`, reproduce the problem, and include the server console output — it prints the identifier, every roster register/update and every cap hit.
+- Check F8 (client) and the server console for errors mentioning `nexus_multijob`.
 - Review this FAQ page.
 
 ## 📋 Changelog
 
-**Current version: 3.1.1** (`fxmanifest.lua`)
+**Current version: 1.0.0** (`fxmanifest.lua`)
 
-- `3.1.1` — current release. Full/minimalist dual style with a per-player toggle, config-driven notification types (`Config.Styles`), per-type sounds, persistent and button notifications, client and server export pairs, player-saved position and scale via KVP, and four optional debug commands.
-
-No earlier version history is recorded in the resource.
+- `1.0.0` — initial release. Persistent per-player job roster on `oxmysql`, automatic capture from ESX and QBCore job events, server-enforced job cap with per-player overrides, custom NUI panel with optimistic updates and DOM-diff refresh, delete confirmation drawer, active-job protection, one-click off duty, six colour themes, configurable open key with `RegisterKeyMapping`, `/njgive` admin command, four notification backends, and seven languages.
