@@ -1,8 +1,7 @@
 # Table of contents
 
 * [👋 Welcome to Nexus Scripts's Docs](README.md)
-* [⬆️ What to expect](nexus-docs/SUMMARY.md)
-* [ℹ️ General Information](01-general-information/README.md)
+* [ℹ️ General Information](general-information/README.md)
   * [🔄 Updates](nexus-docs/01-general-information/actualizaciones.md)
   * [❓ Frequently Asked Questions](nexus-docs/01-general-information/faq.md)
   * [⚙️ Installation & Compatibility](nexus-docs/01-general-information/instalacion.md)
