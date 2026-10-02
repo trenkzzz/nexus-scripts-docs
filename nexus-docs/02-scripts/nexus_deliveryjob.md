@@ -1,752 +1,427 @@
-# Nexus Delivery Job
+# nexus_deliveryjob
 
-A delivery job built as a company-management sim: an XP and skill tree that gates premium routes, a vehicle shop with owned vehicles, hireable employees that generate passive income into a company balance, and a server-wide earnings leaderboard — all behind a single sidebar-driven NUI.
+> The most complete delivery job for ESX: dynamic routes, skill tree, vehicle shop, hireable employees with passive income, company bank, uniforms and dangerous cargo — all inside one handcrafted NUI.
 
-## 📝 Description
+**Version:** 1.4.1 · **Framework:** ESX · **Database:** oxmysql
 
-Nexus Delivery Job starts where most delivery scripts stop. The basic loop is familiar: talk to the dispatcher at the depot, pick a route, a company van spawns in the alley, you follow the GPS to each delivery point, play a box-carry animation at each one, then drive back to the return point to get paid. What sits on top of that loop is a progression economy.
+---
 
-Every completed route awards cash *and* XP. XP converts to skill points at a configurable rate, and skill points buy levels in three skills — Long Routes, Valuable Goods and Hazardous Goods. Routes are tagged with a required skill, and a route is locked until the matching skill is at its **maximum** level, so a skill is a binary unlock gated behind several points rather than an incremental buff. Premium routes pay roughly double. Hazardous routes add real risk: with `Config.DangerousGoodsExplosion` on, a crash above a force threshold or a vehicle health drop below a percentage detonates the cargo and fails the run outright.
+## Description
 
-The second economy is the company. Players buy their own delivery vehicles from an in-NUI shop (five models by default, each with display stats and an image), which unlocks the "Owned Vehicle" route list. They also hire employees from a rotating hiring market — each candidate has an avatar, a star rating, trait tags, a one-time cost and a tier from 1 to 5. On a fixed interval every hired employee generates a random amount inside its tier's range, accumulated into a `company_balance` that the player withdraws as cash from the Bank page. Employees keep earning whether or not the player is driving, which is the point.
+`nexus_deliveryjob` turns deliveries into a full career. Players visit the delivery HQ, pick a route from a rotating list, get a van (or use one they bought), follow the GPS through every drop-off, carry each package to the door and return to base to get paid.
 
-The NUI is a nine-page dashboard: Home (eight stat cards plus a top-5 leaderboard with medals), Quick Jobs and Owned Vehicle Jobs (route cards with payout and distance, plus a live countdown to the next route rotation), Skills (cards with level dots and an unlock/upgrade button), Shop (vehicle cards with colour-graded stat bars), My Vehicles (a list/detail split view with select-for-job and sell actions), Employees (my-employees and hiring-market columns with a rotation countdown), Bank (a vault graphic and a withdraw button) and Cloakroom (put on / take off the work uniform). Routes and the hiring market both rotate on server timers, and the NUI counts down to each rotation and auto-refreshes when it hits zero.
+On top of the basic loop the script adds long-term progression: every route gives XP, XP turns into skill points, and skill points unlock better-paid route types (long distance, valuable cargo, dangerous goods). Players can invest their earnings into their own delivery vehicles, hire NPC employees that generate passive income into a company bank account, and climb a server-wide leaderboard.
 
-Supporting systems round it out: an optional uniform requirement that blocks starting a route out of uniform and restores the player's civilian outfit afterwards, a configurable depot marker or NPC with ox_target / qb-target / qtarget support, a ten-slot vehicle spawn queue that skips occupied bays, and an NPC/traffic suppression zone around the depot so spawning and returning vehicles are not blocked by ambient traffic.
+Everything happens inside a single menu with nine sections: Home, Quick Jobs, Owned Vehicle Jobs, Skills, Shop, My Vehicles, Employees, Bank and Cloakroom.
 
-## ✨ Features
+---
 
-- **Nine-page NUI dashboard** — a fixed sidebar (Home, Quick Jobs, Owned Vehicle, Skills, Shop, My Vehicles, Employees, Bank, Cloakroom, Close) with a sliding page area and a contextual footer bar that only appears on the two route pages.
-- **Home overview** — eight stat cards (completed trips, money earned, kilometres travelled, XP, owned vehicles, employees, skill points, company balance) plus a server-wide top-5 leaderboard by total earnings with gold/silver/bronze medals for the top three.
-- **Two route modes** — *Quick Jobs* spawns a free company van (`Config.DefaultVehicle`); *Owned Vehicle Jobs* uses a vehicle the player bought, which is how owned vehicles pay for themselves. Both lists show the same rotating route set.
-- **Rotating route offers** — the server reshuffles the available route list every `Config.RouteRefreshRate` minutes and reports the remaining time to the NUI, which renders a live `Nuevos en: MM:SS` countdown and triggers a data refresh the moment it hits zero.
-- **Skill-gated routes** — a route with `requiredSkill` is rejected unless the player's matching skill is at `maxLevel`, checked both in the NUI before the request and again on the client before the vehicle spawns.
-- **Three-skill progression** — Long Routes, Valuable Goods and Hazardous Goods, each with a configurable `maxLevel` (3 by default, so three skill points each). Rendered as cards with filled level dots and a button that reads Unlock → Upgrade → Maxed, or Insufficient Points.
-- **XP → skill points** — each route grants `xp`; crossing a `XP_PER_SKILL_POINT` boundary awards `SKILL_POINTS_AWARDED` points. The award is computed as the difference between the old and new tier, so a single large XP grant that crosses several boundaries correctly awards several points at once.
-- **Vehicle shop** — five models by default with price, a product image and freeform stat bars; the stat bar fill colour is graded across five bands from cyan through green and yellow to orange and red depending on the value, so a 90 bar looks visibly different from a 40 bar. Owned vehicles are shown as purchased and cannot be re-bought.
-- **My Vehicles split view** — a thumbnail list on the left, a detail panel on the right with the vehicle image, its stat bars, a toggleable "select for job" button and a sell button behind a confirmation modal showing the exact resale figure (50% of the purchase price).
-- **Hireable employees** — a rotating market of `Config.NumAvailableEmployees` candidates drawn at random from a 20-strong pool, each with an avatar image, a 1–5 star rating, trait tags and a one-time hiring cost; the player is capped at `Config.MaxEmployees` simultaneous hires and cannot hire the same candidate twice.
-- **Passive income ticker** — every `Config.EmployeePayoutInterval` minutes the server iterates online players and credits each hired employee's tier range (`Config.EmployeeTiers`) into that player's `company_balance`.
-- **Company bank page** — a vault graphic, the current balance, a disabled-when-empty withdraw button, and a withdrawal that pays out as **cash** (`xPlayer.addMoney`) rather than into the bank account.
-- **Hazardous cargo explosions** — on a `dangerous` route, a dedicated 500 ms watchdog thread detonates the vehicle (`AddExplosion`) and fails the mission when vehicle health drops below `Config.DangerousGoodsHealthPercent` of maximum, or when a single tick's health loss exceeds `Config.ExplosionCrashForce`.
-- **Vehicle-proximity enforcement** — a delivery only counts if the mission vehicle is within `Config.MaxDistanceToDeliver` metres of the delivery point, so players cannot park the van and run the route in a sports car.
-- **Box-carry animation** — at each delivery point the player plays `anim@heists@box_carry@` with a `prop_cs_cardbox_01` attached to the right hand for 5 seconds, with movement, sprint, jump and vehicle-exit controls disabled for the duration. The prop load is guarded by a 5-second timeout that aborts the animation with a notification rather than hanging.
-- **Delivery-point markers and blips** — each point gets a routed GPS blip (`SetBlipRoute` in green) and a cylinder marker drawn within 20 m; after the last point a new routed blip guides the player to the return point.
-- **Two interaction methods per point** — `target` creates a 2 m sphere/circle zone at each delivery point and a 5 m zone at the return point (ox_target, qb-target or qtarget, auto-detected); `textui` falls back to a distance check plus a TextUI prompt and `Config.KeyInteract`.
-- **Depot marker or NPC** — `Config.UseNPC` switches between a configurable ped with a scenario (`cs_floyd` playing `WORLD_HUMAN_CLIPBOARD` by default) and a bare `Config.MarkerType` marker.
-- **Optional job gate** — `Config.JobNeed` restricts the whole job to holders of `Config.JobName`, enforced in the target's `canInteract` and in the TextUI interaction path.
-- **Uniform system** — with `Config.WorkOutfitRequired`, the player's civilian outfit is captured via `esx_skin:getPlayerSkin` the first time they open the menu, the Cloakroom applies a configurable per-gender work outfit (components and props, including `-1` to clear a prop), and starting a route is blocked while out of uniform. A per-component comparison (`GetPedDrawableVariation` / `GetPedTextureVariation`) does the checking.
-- **Ten-bay spawn queue** — `Config.VehicleSpawns` holds ten alley positions; the script takes the first one with no vehicle within 3 m, and notifies the player if all ten are blocked.
-- **Depot traffic suppression** — within `Config.ClearZoneRadius` of `Config.ClearZoneCenter`, vehicle and ped density are zeroed every frame and `RemoveVehiclesFromGeneratorsInArea` keeps the spawn alley and return point clear.
-- **Mission-state guard** — reopening the menu mid-route shows a dedicated "Active Delivery" screen with a cancel button instead of the dashboard, so a route cannot be started on top of another.
-- **Return-point handover** — finishing requires the player to be in the **driver's seat** of the mission vehicle; otherwise a notification explains why. On success the vehicle is deleted, the blip removed and the payout applied.
-- **Seven languages** — `es`, `en`, `fr`, `pt`, `it`, `de`, `zh-CN`, all with identical 42-key sets, all outside the escrow.
-- **Modular notify / TextUI / keys / fuel** — four independent Config switches routed through `shared/functions.lua`, which ships outside the escrow with a `custom` branch for each.
-- **Resource-name guard** — `shared/_resource.lua` aborts the resource if the folder is not named `nexus_deliveryjob`, with a second redundant check at the top of `client.lua` and `server.lua`.
+## Features
 
-## 📋 Dependencies
+### Routes
+- **Rotating route board** — every `Config.RouteRefreshRate` minutes the server picks up to 10 random routes from `Config.Rutas`. The menu shows a live countdown until the next refresh.
+- **Two ways to work** — *Quick Jobs* (company vehicle, `Config.DefaultVehicle`) or *Owned Vehicle Jobs* (one of the player's purchased vehicles).
+- **Multi-stop deliveries** — each route has any number of delivery points. The player parks near the marker, gets out, grabs the package (with prop + animation) and delivers it at the door.
+- **Anti-abuse delivery checks** — the job vehicle must be within `Config.MaxDistanceToDeliver` metres of the drop-off, and the player must be the driver to finish the route.
+- **Server-authoritative rewards** — the server records which route each player accepted and pays only the configured reward/XP for that route. The client never sends money or XP values.
+- **Route types** — `normal`, `distance`, `expensive`, `dangerous`. Non-normal routes require the matching skill at max level.
+- **Dangerous goods** — on `dangerous` routes the vehicle explodes on hard crashes or when its health drops below a configurable threshold, failing the mission.
 
-| Dependency | Required? | Notes |
+### Progression
+- **XP → skill points** — every `XP_PER_SKILL_POINT` XP grants `SKILL_POINTS_AWARDED` skill points.
+- **Skill tree** — three skills by default (Long Distance, Valuable Cargo, Dangerous Goods), each with its own number of levels. Max level is validated on the server.
+- **Statistics** — completed trips, money earned, km travelled, XP, owned vehicles, employees and company balance on the Home page.
+- **Leaderboard** — top 5 deliverers of the server, by total earnings.
+
+### Economy
+- **Vehicle shop** — buy delivery vehicles with custom stats bars (speed, braking, handling). Owned vehicles unlock *Owned Vehicle Jobs*.
+- **Vehicle selling** — sell an owned vehicle back for 50% of its price, with confirmation modal and a short cooldown. Money is only paid after the database confirms the vehicle was removed.
+- **Employees** — a rotating hiring market (`Config.NumAvailableEmployees` candidates every `Config.EmployeeRefreshRate` minutes). Each employee has a level (1-5), star rating, traits and hire cost.
+- **Passive income** — every `Config.EmployeePayoutInterval` minutes each hired employee of an online player produces money according to its tier. Earnings go to the company balance.
+- **Company bank** — withdraw the accumulated company balance in cash at any time.
+
+### Immersion
+- **Uniform system** — optional mandatory work outfit (male/female) with components and props; the player's civilian clothes are saved and restored from the Cloakroom.
+- **NPC or marker** — open the menu through an NPC (any ped model + scenario) or a classic marker.
+- **Target or TextUI** — `ox_target`, `qb-target`, `qtarget` or a TextUI prompt.
+- **NPC-free zone** — optionally removes NPC pedestrians and traffic around the HQ so spawn/return points are never blocked.
+- **In-menu tutorial** — first-time players see a short "how it works" guide (with "don't show again").
+
+---
+
+## Dependencies
+
+| Resource | Required | Notes |
 |---|---|---|
-| **es_extended (ESX)** | **Required** | Declared in `dependencies` and loaded as `@es_extended/imports.lua`. Both client and server call `exports['es_extended']:getSharedObject()` unconditionally at file scope. There is no QBCore branch anywhere in this resource — it is **ESX-only**. |
-| **oxmysql** | **Required** | Declared in `dependencies` and loaded as `@oxmysql/lib/MySQL.lua`. The code uses the `MySQL.Async.*` compatibility API (`fetchAll`, `execute`) with `@named` parameters, which oxmysql provides. |
-| **MySQL / MariaDB** | **Required** | Five tables, imported manually from `tables.sql`. They are **not** created automatically. |
-| **illenium-appearance** | Declared required | Listed in `dependencies`. Only relevant when `Config.WorkOutfitRequired = true`. |
-| **skinchanger** | Declared required | Listed in `dependencies`. `skinchanger:loadSkin` is the event used to restore the civilian outfit, and `esx_skin:getPlayerSkin` is the callback used to capture it. If you run a different clothing stack, those two calls in `client.lua` are the integration points — but note they are inside the escrow. |
-| **ESX `users` table** | **Required** | The leaderboard query joins `delivery_history` against `users` on `identifier` and reads `firstname` / `lastname`. |
-| **ox_target** / **qb-target** / **qtarget** | Optional | Only when `Config.InteractionMethod = 'target'`. Auto-detected in that order of preference. With no target resource present the script logs a warning and the depot becomes unreachable in `target` mode. |
-| **A notification resource** | Optional | `nexus_notify`, `okokNotify`, `mythic_notify` or ESX natives, selected by `Config.NotifySystem`. With no match it prints to the F8 console. |
-| **A TextUI resource** | Optional | `okokTextUI` or ESX's `ShowHelpNotification`, selected by `Config.TextUISystem`. With no match it prints to the F8 console. |
-| **LegacyFuel** | Optional | Only when `Config.UseFuelSystem = 'legacyfuel'`. |
-| **cd_garage** | Optional | Only when `Config.UseKeysSystem = 'cd_garage'`. |
-| **A job in ESX** | Conditional | Only when `Config.JobNeed = true`; `Config.JobName` must match a real ESX job name. |
-| **Internet access from the game client** | Soft | The NUI loads Font Awesome 6.2.0 from cdnjs and Poppins from Google Fonts. Without outbound access the icons and typography degrade. |
+| `es_extended` | Yes | ESX Legacy. |
+| `oxmysql` | Yes | Database driver. |
+| `illenium-appearance` | Yes | Listed in the manifest dependencies (uniform system). |
+| `skinchanger` | Yes | Used to restore the civilian outfit. |
+| `esx_skin` | Recommended | Provides `esx_skin:getPlayerSkin` used to save the civilian outfit. |
+| `ox_target` / `qb-target` / `qtarget` | Optional | Only when `Config.InteractionMethod = 'target'`. |
+| `nexus_notify` / `okokNotify` / `mythic_notify` | Optional | Notification system, selectable in config. |
+| `okokTextUI` | Optional | TextUI, selectable in config. |
+| `cd_garage` | Optional | Vehicle keys, selectable in config. |
+| `LegacyFuel` | Optional | Fuel, selectable in config. |
 
-## ⚙️ Installation
+---
 
-1. **Extract the resource.** Download it from the cfx.re (Keymaster) portal and place the folder in `resources`. The folder **must** be named exactly `nexus_deliveryjob` — `shared/_resource.lua` stops the resource otherwise.
-2. **Import the database.** Run `tables.sql` against your database. It creates `delivery_players`, `delivery_history`, `delivery_owned_vehicles`, `delivery_player_skills` and `delivery_employees`. The script does **not** create them for you.
-   > The shipped statements use plain `CREATE TABLE`, not `CREATE TABLE IF NOT EXISTS`, so re-importing the file on an existing database will error out on the first table. Import it once, or add `IF NOT EXISTS` yourself before re-running it.
-3. **Order your `server.cfg`.** ESX, oxmysql, your clothing stack and your target resource all need to start first:
-   ```cfg
-   ensure oxmysql
-   ensure es_extended
-   ensure skinchanger
-   ensure illenium-appearance
-   # ensure ox_target        # if Config.InteractionMethod = 'target'
-   # ensure okokNotify       # if Config.NotifySystem  = 'okok'
-   # ensure okokTextUI       # if Config.TextUISystem  = 'okok'
-   ensure nexus_deliveryjob
-   ```
-4. **Set the language.** `Config.Locale` in `shared/config.lua` (`es`, `en`, `fr`, `pt`, `it`, `de`, `zh-CN`). Note the warning in the file itself: the NUI is **not** covered by the locale files and has to be translated separately in `html/script.js` and `html/index.html`.
-5. **Pick your external systems.** `Config.NotifySystem`, `Config.TextUISystem`, `Config.UseKeysSystem` and `Config.UseFuelSystem`. Each has a `custom` option with a marked block in `shared/functions.lua`. Defaults as shipped are `nexus` notify and `okok` TextUI — change them if you do not run those resources.
-6. **Place the depot.** Set `Config.NPC.coords` (this single value drives both the NPC and the marker), then set `Config.ClearZoneCenter` to the same position, `Config.VehicleSpawns` to your spawn bays and `Config.ReturnPoint` to where the van is handed back.
-7. **Choose the interaction method.** `Config.InteractionMethod = 'target'` (recommended) or `'textui'`. Note that in `target` mode the dispatcher NPC is always created regardless of `Config.UseNPC`.
-8. **Build your routes.** Edit `Config.Rutas`. The commented template above the table documents every field. Three routes ship by default (`sandyshores`, `paletobay`, `beach1`); only one of them uses a skill (`distance`), so if you want the Valuable Goods and Hazardous Goods skills to be worth buying you need to add `expensive` and `dangerous` routes yourself.
-9. **Review the economy.** `Config.EmployeeTiers`, `Config.AvailableEmployees` costs, `Config.ShopVehicles` prices, `Config.EmployeePayoutInterval`, `Config.XPSystem` and each route's `recompensa` range all feed the same economy — tune them together.
-10. **Configure the uniform.** If `Config.WorkOutfitRequired = true`, set `Config.WorkOutfit.male` and `.female` to real component and texture ids for your clothing pack. Wrong values mean players can never satisfy the uniform check and can never start a route.
-11. **Restart the server**, then walk to the depot and interact with the dispatcher (target option *"Abrir Menú de Repartos"*, or `E` in `textui` mode) to open the dashboard.
+## Installation
 
-## 🔧 Configuration
+1. **Download** the resource from your Cfx.re Keymaster (Granted Assets).
+2. **Extract** it into your resources folder. The folder **must** be named exactly `nexus_deliveryjob` — the script stops with an error otherwise.
+3. **Import the SQL**: run `tables.sql` in your database. It uses `CREATE TABLE IF NOT EXISTS`, so it is safe to run again on updates.
+4. **Add to `server.cfg`** after its dependencies:
 
-Everything lives in `shared/config.lua`, which ships outside the escrow.
+```cfg
+ensure oxmysql
+ensure es_extended
+ensure skinchanger
+ensure illenium-appearance
+# ensure ox_target / nexus_notify / ... (optional systems)
+ensure nexus_deliveryjob
+```
 
-### Framework
+5. **Configure** `shared/config.lua` (language, notify/TextUI/target/keys/fuel systems, HQ location, routes, prices...).
+6. Restart the server (or `refresh` + `ensure nexus_deliveryjob`).
 
-| Config key | Type | Default | Description |
-|---|---|---|---|
-| `Config.Locale` | string | `'en'` | Active language for the Lua-side strings: `es`, `en`, `fr`, `pt`, `it`, `de`, `zh-CN`. Resolved by `Functions.Lang`. **Does not translate the NUI** — see Locales below. |
-| `Config.JobNeed` | boolean | `false` | When `true`, only players whose ESX job matches `Config.JobName` can open the menu. Enforced in the target's `canInteract` and in the `textui` interaction. |
-| `Config.JobName` | string | `'ambulance'` | The ESX job **name** (not label) required when `Config.JobNeed` is `true`. |
-| `Config.DefaultVehicle` | string | `'boxville4'` | Vehicle model spawned for "Quick Jobs" routes. |
-| `Config.TextUISystem` | string | `'okok'` | `'okok'` → `okokTextUI`, `'esx'` → `ESX.ShowHelpNotification`, `'custom'` → your own block in `shared/functions.lua`. Any other value prints to the F8 console. Note `HideText` only has an implementation for `okok` and `custom`. |
-| `Config.NotifySystem` | string | `'nexus'` | `'nexus'` → `nexus_notify`, `'okok'` → `okokNotify`, `'mythic'` → `mythic_notify`, `'esx'` → ESX natives, `'custom'` → your own block. Any other value prints to the F8 console. |
-| `Config.UseKeysSystem` | string | `'default'` | `'cd_garage'` → hands the player keys to the spawned van, `'custom'` → your own block, `'default'` → no key system (the van simply cannot be locked or unlocked). |
-| `Config.UseFuelSystem` | boolean/string | `false` | `'legacyfuel'` → `exports['legacyfuel']:SetFuel`, `'custom'` → your own block, `'default'`/`false` → no fuel handling (the van never consumes fuel). |
+### Updating from 1.4
+Replace the resource folder, keeping your `shared/config.lua`, `shared/functions.lua`, `client/target.lua` and `locales/` if you customised them. Then add the new locale key `skill_max_level` to any custom locale file (see [Locales](#locales--editable-strings)). Re-running `tables.sql` is harmless.
 
-### Interaction
+---
 
-| Config key | Type | Default | Description |
-|---|---|---|---|
-| `Config.InteractionMethod` | string | `'target'` | `'target'` → sphere/circle zones for the depot, the delivery points and the return point, using ox_target, qb-target or qtarget (auto-detected in that order). `'textui'` → distance checks plus a TextUI prompt and `Config.KeyInteract`. |
-| `Config.KeyInteract` | number | `38` (`E`) | Control id used for every interaction in `textui` mode. Ignored in `target` mode. |
-| `Config.UseNPC` | boolean | `false` | `true` → spawn the dispatcher ped at the depot; `false` → draw a marker instead. **Only honoured in `textui` mode** — in `target` mode `client/target.lua` always creates the ped, because a target zone needs an entity. |
-| `Config.MarkerType` | number | `20` | Marker type drawn at the depot when `Config.UseNPC = false` in `textui` mode. See the FiveM marker reference. |
-| `Config.NPC.model` | string | `'cs_floyd'` | Dispatcher ped model. |
-| `Config.NPC.name` | string | `'Siro'` | Dispatcher name, substituted into the `interact_npc` locale string in `textui` + `UseNPC` mode. |
-| `Config.NPC.coords` | vector4 | `vector4(-424.285706, -2789.868164, 6.515747, 323.149597)` | Depot position and heading. **Used by both the NPC and the marker** — change this to relocate the depot. The ped is created at `z - 1.0`. |
-| `Config.NPC.anim` | string | `'WORLD_HUMAN_CLIPBOARD'` | Scenario played in place by the dispatcher. |
-| `Config.VehicleSpawns` | vector4[] | 10 alley positions | Candidate spawn bays, tried in order; the first with no vehicle within 3 m is used. If all are occupied the player is notified and the route does not start. |
-| `Config.ReturnPoint` | vector3 | `vector3(-408.210999, -2799.494385, 5.993408)` | Where the mission vehicle must be returned to finish the route. |
+## Configuration
+
+All options live in `shared/config.lua` (open file, not escrowed).
+
+### General
+
+| Option | Default | Description |
+|---|---|---|
+| `Config.Locale` | `'en'` | `es`, `en`, `fr`, `pt`, `it`, `de`, `zh-CN`. |
+| `Config.JobNeed` | `false` | If `true`, only players with `Config.JobName` can open the menu. |
+| `Config.JobName` | `"ambulance"` | Job **name** (not label) required when `JobNeed = true`. |
+| `Config.DefaultVehicle` | `"boxville4"` | Vehicle model used for Quick Jobs. |
+| `Config.TextUISystem` | `"okok"` | `okok`, `esx`, `custom`. |
+| `Config.NotifySystem` | `"nexus"` | `nexus`, `okok`, `mythic`, `esx`, `custom`. |
+| `Config.UseKeysSystem` | `"default"` | `cd_garage`, `custom`, `default` (no keys). |
+| `Config.UseFuelSystem` | `false` | `legacyfuel`, `custom`, or `false`/`default` (no fuel). |
+| `Config.DebugPrints` | `false` | Server console prints on route/employee refresh. |
+
+### Interaction & locations
+
+| Option | Description |
+|---|---|
+| `Config.InteractionMethod` | `'target'` or `'textui'`. |
+| `Config.KeyInteract` | Control ID for all interactions (default `38` = E). |
+| `Config.UseNPC` | `true` = spawn an NPC, `false` = draw a marker. |
+| `Config.MarkerType` | Marker type when `UseNPC = false` ([marker list](https://docs.fivem.net/docs/game-references/markers/)). |
+| `Config.NPC` | `model`, `name`, `coords` (vector4, also used by the marker) and `anim` scenario. |
+| `Config.VehicleSpawns` | List of vector4 spawn points. The first free one is used. |
+| `Config.ReturnPoint` | Where the vehicle must be brought back to finish the route. |
+| `Config.ClearZoneEnabled` / `ClearZoneCenter` / `ClearZoneRadius` | NPC-free zone around the HQ. |
 
 ### Routes
 
-| Config key | Type | Default | Description |
-|---|---|---|---|
-| `Config.RouteRefreshRate` | number (min) | `1` | How often the server reshuffles the available route list. The NUI counts down to this and auto-refreshes. |
-| `Config.MaxDistanceToDeliver` | number (m) | `25.0` | Maximum distance the mission vehicle may be from a delivery point for the delivery to count. Prevents doing the route in a faster private car. |
-| `Config.Rutas` | table | 3 routes | The route catalogue. See the structure below. |
-| `Config.DangerousGoodsExplosion` | boolean | `true` | Enables the explosion watchdog on `dangerous`-type routes. |
-| `Config.ExplosionCrashForce` | number | `40` | Maximum health loss in a single 500 ms tick the vehicle can absorb without detonating. Higher = harder to blow up. |
-| `Config.DangerousGoodsHealthPercent` | number | `0.8` | Vehicle health floor as a fraction of maximum; below this the cargo detonates. `0.8` = 80%. Lower = easier to survive. |
+| Option | Default | Description |
+|---|---|---|
+| `Config.RouteRefreshRate` | `1` | Minutes between route board refreshes. |
+| `Config.MaxDistanceToDeliver` | `25.0` | Max metres between the vehicle and the drop-off. |
+| `Config.Rutas` | — | Route table (see below). |
+| `Config.DangerousGoodsExplosion` | `true` | Enable explosions on `dangerous` routes. |
+| `Config.ExplosionCrashForce` | `40` | Crash force the vehicle withstands. Higher = harder to explode. |
+| `Config.DangerousGoodsHealthPercent` | `0.8` | Explodes when health drops below this fraction. |
 
-Route structure — each key is the internal id the server uses:
+Route format:
 
 ```lua
 Config.Rutas = {
-    sandyshores = {                        -- internal id, used in delivery_history.route_id
-        label       = "Delivery on Sandy", -- shown to the player
+    sandyshores = {                          -- route id (unique key)
+        label = "Delivery on Sandy",
         description = "Long range delivery.",
-        type        = "normal",            -- "normal" | "distance" | "expensive" | "dangerous"
-        requiredSkill = nil,               -- nil, or a key of Config.Skills; must be at maxLevel
-        deliveryPoints = {                 -- visited in order, one package each
+        type = "normal",                     -- normal | distance | expensive | dangerous
+        requiredSkill = nil,                 -- nil or a key of Config.Skills
+        deliveryPoints = {
             vector3(1978.88, 3819.35, 32.22),
             vector3(1738.15, 3719.77, 34.03),
         },
-        recompensa  = { min = 3400, max = 3800 },  -- random payout in this range
-        xp          = 50,                  -- XP awarded on completion
-        distance    = 8.4                  -- display only, and logged to delivery_history.distance
+        recompensa = { min = 3400, max = 3800 }, -- random payout range
+        xp = 50,
+        distance = 8.4                       -- km, shown in the UI and stored in stats
     },
 }
 ```
 
-`type = "dangerous"` is what arms the explosion watchdog; `requiredSkill` is what locks the route. They are independent fields, so a route can be dangerous without requiring the Hazardous Goods skill, or vice versa. **As shipped, no route has `type = "dangerous"` and none requires `expensive` or `dangerous`**, so the explosion system and two of the three skills have nothing to act on until you add routes for them.
+> The route **key** (`sandyshores`) is the route id. Rewards, XP and distance are always read on the server from this table.
 
 ### Employees
 
-| Config key | Type | Default | Description |
-|---|---|---|---|
-| `Config.EmployeePayoutInterval` | number (min) | `30` | How often the passive-income ticker runs. It only pays players who are online at that moment. |
-| `Config.MaxEmployees` | number | `4` | Maximum simultaneous hires per player. Enforced server-side. |
-| `Config.EmployeeTiers` | table | 5 tiers | Payout range per employee level, in cash per interval. |
-| `Config.AvailableEmployees` | table | 20 candidates | The candidate pool the hiring market draws from. |
-| `Config.EmployeeRefreshRate` | number (min) | `2` | How often the hiring market is reshuffled. The NUI counts down to this. |
-| `Config.NumAvailableEmployees` | number | `4` | How many candidates the market shows at a time, drawn at random without repeats. |
+| Option | Default | Description |
+|---|---|---|
+| `Config.EmployeePayoutInterval` | `30` | Minutes between passive payouts. |
+| `Config.MaxEmployees` | `4` | Max hired employees per player. |
+| `Config.EmployeeTiers` | — | `[level] = { min, max }` money produced per payout. |
+| `Config.AvailableEmployees` | 20 candidates | `id`, `name`, `avatarImage` (`html/img/employees/`), `rating`, `traits`, `cost`, `level`. |
+| `Config.EmployeeRefreshRate` | `2` | Minutes between hiring market refreshes. |
+| `Config.NumAvailableEmployees` | `4` | Candidates shown at once. |
 
-```lua
-Config.EmployeeTiers = {
-    [1] = { min = 100, max = 200 },   -- paid per Config.EmployeePayoutInterval
-    [2] = { min = 250, max = 400 },
-    [3] = { min = 300, max = 600 },
-    [4] = { min = 400, max = 700 },
-    [5] = { min = 500, max = 800 },
-}
-
-Config.AvailableEmployees = {
-    {
-        id          = 'cand01',          -- internal id, stored in delivery_employees.employee_name
-        name        = 'James',           -- shown to the player
-        avatarImage = 'employee4.png',   -- file in html/img/employees/
-        rating      = 1,                 -- 1-5 stars, display only
-        traits      = {'Barato', 'Aprendiz'},  -- tag chips, display only
-        cost        = 5000,              -- one-time hiring cost, paid from the bank account
-        level       = 1,                 -- 1-5, indexes Config.EmployeeTiers
-    },
-    -- …19 more
-}
-```
-
-The `rating` is cosmetic; `level` is what determines income. Keeping them aligned is a convention, not a rule. Note that the NUI renders a "Salario" (salary) figure on hired employee cards, but no candidate in the shipped config defines a `salary` field, so the server substitutes a flat `500` for every employee — the figure is cosmetic and does not come out of anyone's pocket.
-
-### Skills
-
-| Config key | Type | Default | Description |
-|---|---|---|---|
-| `Config.Skills` | table | 3 skills | The skill catalogue. The key is the id referenced by a route's `requiredSkill`. |
-| `Config.XPSystem.XP_PER_SKILL_POINT` | number | `1000` | XP needed per skill point. |
-| `Config.XPSystem.SKILL_POINTS_AWARDED` | number | `1` | Points granted each time a threshold is crossed. |
+### Skills & XP
 
 ```lua
 Config.Skills = {
-    distance = {
-        name        = "Rutas Lejanas",
-        description = "Desbloquea el acceso a entregas de larga distancia…",
-        maxLevel    = 3,          -- 3 skill points to unlock; routes need maxLevel, not level 1
-    },
-    expensive = { name = "Mercancía Valiosa",  description = "…", maxLevel = 3 },
-    dangerous = { name = "Mercancía Peligrosa", description = "…", maxLevel = 3 },
+    distance  = { name = "Long Distance",  description = "...", maxLevel = 3 },
+    expensive = { name = "Valuable Cargo", description = "...", maxLevel = 3 },
+    dangerous = { name = "Dangerous Goods", description = "...", maxLevel = 3 },
+}
+
+Config.XPSystem = {
+    XP_PER_SKILL_POINT   = 1000,
+    SKILL_POINTS_AWARDED = 1,
 }
 ```
 
-Adding a fourth skill also requires adding its Font Awesome icon to the `skillIcons` maps in `html/script.js` (two copies: one for route cards, one for skill cards), otherwise it renders with a question-mark icon.
+Each level costs one skill point. A route with `requiredSkill` needs that skill at `maxLevel`. Icons for the three default skills are mapped in `html/script.js`.
 
 ### Outfit
 
-| Config key | Type | Default | Description |
-|---|---|---|---|
-| `Config.WorkOutfitRequired` | boolean | `true` | When `true`, the uniform must be worn to start a route, checked component by component. When `false` the check always passes (but the Cloakroom page still works). |
-| `Config.WorkOutfit.male` / `.female` | table | see below | Per-gender components and props. Gender is derived from the ped model (`mp_f_freemode_01` → female, anything else → male). |
+| Option | Description |
+|---|---|
+| `Config.WorkOutfitRequired` | If `true`, the uniform is required to start a route. |
+| `Config.WorkOutfit` | `male` / `female` tables with `components` and `props` (`drawable`, `texture`). |
 
-```lua
-Config.WorkOutfit = {
-    male = {
-        components = {
-            ['mask']   = { drawable = 0,   texture = 0 },
-            ['arms']   = { drawable = 0,   texture = 0 },
-            ['pants']  = { drawable = 10,  texture = 0 },
-            ['bags']   = { drawable = 0,   texture = 0 },
-            ['shoes']  = { drawable = 36,  texture = 0 },
-            ['tshirt'] = { drawable = 15,  texture = 0 },
-            ['vest']   = { drawable = 250, texture = 0 },
-            ['decals'] = { drawable = 0,   texture = 0 },
-            ['bproof'] = { drawable = 0,   texture = 0 },
-        },
-        props = {
-            -- ['hats'] = { drawable = -1, texture = 0 },  -- -1 clears the prop
-        }
-    },
-    female = { components = { --[[ … ]] }, props = {} }
-}
-```
-
-Supported component names: `face`, `mask`, `hair`, `torso`, `pants`, `bags`, `shoes`, `neck`, `tshirt`, `bproof`, `decals`, `vest`, `arms`. Supported prop names: `hats`, `glasses`, `ears`, `watches`, `bracelets`. Note that `torso` and `vest` both map to component id 11, so setting both is contradictory — set only `vest`.
-
-### Shop
-
-| Config key | Type | Default | Description |
-|---|---|---|---|
-| `Config.ShopVehicles` | table | 5 vehicles | The vehicle catalogue. The key is the internal id, stored in `delivery_owned_vehicles.vehicle_id` **and** used to resolve the image path. |
+### Vehicle shop
 
 ```lua
 Config.ShopVehicles = {
-    speedo = {                  -- key must match html/img/<key>.png
-        name  = 'Vapid Speedo', -- shown to the player
-        price = 40000,          -- paid from the bank account; resale is 50%
-        model = 'speedo',       -- actual spawn model (may differ from the key)
-        stats = {               -- freeform; each becomes a graded bar in the UI
-            velocity = 70,
-            braking  = 43,
-            handling = 62,
-        }
+    speedo = {
+        name = 'Vapid Speedo',
+        price = 40000,
+        model = 'speedo',
+        stats = { velocity = 70, braking = 43, handling = 62 } -- 0-100, UI only
     },
 }
 ```
 
-The key and the `model` are independent — `boxville2` in the shipped config spawns `boxville4`, and `burrito` spawns `burrito3`. The **key** is what the image lookup uses (`html/img/<key>.png`), so a new vehicle needs a PNG named after its key added to `html/img/` and to the `files` list in `fxmanifest.lua`.
+The key (`speedo`) is also the image name: `html/img/speedo.png`. Selling returns 50% of `price`.
 
-### Miscellaneous
+---
 
-| Config key | Type | Default | Description |
-|---|---|---|---|
-| `Config.ClearZoneEnabled` | boolean | `true` | Suppresses ambient vehicles and peds near the depot so spawn bays and the return point stay clear. Recommended on. |
-| `Config.ClearZoneCenter` | vector3 | `vector3(-424.285706, -2789.868164, 6.515747)` | Centre of the suppression zone. Keep it in sync with `Config.NPC.coords`. |
-| `Config.ClearZoneRadius` | number (m) | `200.0` | Radius of the suppression zone. Note that while the player is inside it the loop runs every frame (`Wait(0)`). |
-| `Config.DebugPrints` | boolean | `false` | Prints the route and employee refresh lines to the server console. Leave `false` in production. |
+## Locales & Editable Strings
 
-## 🌐 Locales & Editable Strings
+Everything a server owner may want to change is outside the escrow:
 
-Seven languages ship, all in `escrow_ignore` and all loaded individually in `shared_scripts`: `locales/es.lua`, `en.lua`, `fr.lua`, `pt.lua`, `de.lua`, `it.lua`, `zh-CN.lua`. Key sets are **identical across all seven** — 42 keys each (verified).
-
-Each file assigns `Locales['<lang>']`; `Functions.Lang(key, ...)` in `shared/functions.lua` resolves `Locales[Config.Locale][key]`, returns the key itself when missing, counts the `%s` placeholders in the string and pads missing arguments with the literal `"nil"` so a mismatched call never throws.
-
-**The NUI is not localised.** `Config.Locale` says so explicitly in the config comment: *"YOU ALSO NEED TO TRANSLATE THE NUI (script.js, index.html, style.css)"*. There is no i18n layer in the NUI at all. As shipped the NUI text is a mix:
-
-| Where | Language as shipped | Examples |
-|---|---|---|
-| `html/index.html` | **English** | page titles, stat card labels, sidebar, bank page, cloakroom, tutorial, confirmation modal |
-| `html/script.js` (dynamic) | **Spanish** | `Comprar` / `Comprado`, `Desbloquear` / `Mejorar` / `Maximizado` / `Puntos Insuficientes`, `Mis Empleados (n/m)`, `Contratar` / `Contratado` / `Despedir`, `Seleccionar para Trabajo` / `Seleccionado`, `Vender Vehículo`, `Confirmar Venta`, `Salario:` / `Coste:`, `Nuevos en: MM:SS`, `Actualizando...`, `Desconocido` |
-
-Both files ship as `files` in the manifest and are therefore never encrypted, so all of this is directly editable — it just has to be done by hand, twice if you want two languages.
-
-**Two player-facing strings are duplicated in Spanish inside the NUI** even though a translated locale key already exists for them:
-
-| NUI string (`html/script.js`) | Existing locale key |
+| File | Contents |
 |---|---|
-| `Necesitas la habilidad '%s' al nivel máximo para esta ruta.` | `need_skill` |
-| `Debes llevar puesto el uniforme de trabajo para empezar la ruta.` | `must_wear_outfit` |
+| `shared/config.lua` | All options, route/skill/employee/vehicle names and descriptions. |
+| `shared/functions.lua` | Notify, TextUI, keys and fuel bridges + the `Functions.Lang` helper. |
+| `client/target.lua` | Target integration for the HQ NPC. |
+| `locales/*.lua` | In-game texts in 7 languages: `en`, `es`, `de`, `fr`, `it`, `pt`, `zh-CN`. |
+| `html/index.html`, `html/script.js`, `html/style.css` | The NUI (English by default). |
 
-Both are sent to the `notify` NUI callback, so they bypass `Functions.Lang` entirely and will stay Spanish on an English server.
+`Config.Locale` selects the language used by notifications and prompts. If a key is missing in the selected file, the key name itself is shown, so keep all files in sync.
 
-**One string is hardcoded inside the escrow and cannot be changed.** In `client/client.lua` (which is **not** in `escrow_ignore`), the qb-target / qtarget branch for delivery points uses a literal label:
-
-```lua
-options = { { event = "delivery:client:deliverPackage", icon = "fa-solid fa-box-open",
-              label = "Entregar Paquete" } }
-```
-
-The ox_target branch right above it correctly uses `Functions.Lang('deliver_package_target')`. So on a server running ox_target the label is translated; on qb-target or qtarget it is permanently Spanish. The same file also prints a Spanish console error when the box prop fails to load.
-
-**Editable but not using the locale system:** `client/target.lua` *is* in `escrow_ignore`, and its three target labels are the hardcoded Spanish `"Abrir Menú de Repartos"` instead of a locale key. Easy to change, but it means the depot label does not follow `Config.Locale`.
-
-**Config strings that are player-facing but only exist in one language:** `Config.Skills[*].name` and `.description` are Spanish; `Config.AvailableEmployees[*].traits` are Spanish (`'Barato'`, `'Aprendiz'`, `'Experto'`, `'Larga Distancia'`, `'Mercancía Peligrosa'`); `Config.Rutas[*].label` and `.description` are English. All three are in `config.lua` outside the escrow and are meant to be edited, but they are not covered by the locale files, so a multilingual server cannot serve both.
-
-**Seven unused locale keys.** Present in all seven languages but never referenced by any Lua file: `already_job`, `get_out_to_deliver`, `must_be_in_vehicle`, `must_drive_vehicle`, `must_wear_outfit`, `need_to_pick_before`, `not_enough_skill_points`. The last one is notable — the server uses `Functions.Lang("not_enough_skill_points")` in `delivery:upgradeSkill`, so it *is* used; the other six are genuinely dead (two of them superseded by the hardcoded NUI strings above).
-
-## 🔗 Compatibility
-
-| System | How it is selected | Notes |
-|---|---|---|
-| **Framework** | hard dependency | **ESX only.** `exports['es_extended']:getSharedObject()` is called at file scope in `client.lua`, `server.lua` and `target.lua`, `@es_extended/imports.lua` is loaded in `shared_scripts`, and the code uses `xPlayer.getAccount('bank')`, `addAccountMoney`, `removeAccountMoney`, `addMoney`, `ESX.RegisterServerCallback`, `ESX.TriggerServerCallback`, `ESX.Game.SpawnVehicle`, `ESX.Game.DeleteVehicle`, `ESX.GetPlayers` and the ESX `users` table. There is no QBCore path. |
-| **Database** | hard dependency | oxmysql, via the `MySQL.Async.*` compatibility API with `@named` parameters. |
-| **Notifications** | `Config.NotifySystem` | `'nexus'` (`nexus_notify`), `'okok'` (`okokNotify`), `'mythic'` (`mythic_notify`), `'esx'` (natives) or `'custom'`. Client and server variants are separate functions (`Functions.Notify` and `Functions.NotifyServer`) in `shared/functions.lua`. Unmatched values fall through to an F8 print. |
-| **TextUI** | `Config.TextUISystem` | `'okok'` (`okokTextUI` with `Open`/`Close`), `'esx'` (`ShowHelpNotification`) or `'custom'`. Only used in `textui` interaction mode. `Functions.HideText` has no `esx` branch, which is harmless because ESX help notifications expire on their own. |
-| **Target system** | `Config.InteractionMethod = 'target'` | Auto-detected at runtime via `GetResourceState`, preferring **ox_target**, then **qb-target**, then **qtarget**. ox_target uses the modern `addSphereZone` / `addLocalEntity` API; the other two use the legacy `AddCircleZone` / `AddTargetEntity` API. All three are removed with `removeZone`. |
-| **Vehicle keys** | `Config.UseKeysSystem` | `'cd_garage'` (`cd_garage:AddKeys` with the plate from `exports['cd_garage']:GetPlate`), `'custom'` or `'default'` (no key handling). |
-| **Fuel** | `Config.UseFuelSystem` | `'legacyfuel'` (`exports['legacyfuel']:SetFuel`), `'custom'` or `'default'`/`false` (no fuel handling). Note the shipped branches hardcode a fill of `100` and ignore the `amount` argument, so the van always spawns with a full tank. The function also contains a `trk_fueling` branch marked `--DONT USE THIS` — a developer leftover; do not select it. |
-| **Clothing** | hardcoded | `esx_skin:getPlayerSkin` to capture the civilian outfit and `skinchanger:loadSkin` to restore it, both in `client/client.lua` (inside the escrow). `illenium-appearance` and `skinchanger` are both declared as dependencies. The uniform itself is applied with native `SetPedComponentVariation` / `SetPedPropIndex`, so it does not need a clothing resource — only the *restore* path does. |
-| **Banking** | ESX accounts | Route payouts, vehicle purchases/sales and employee hires use the ESX `bank` account. The company-balance withdrawal pays out as **cash** (`addMoney`), by design — the Bank page states this. No external banking resource is used. |
-| **Branding** | — | The NUI uses a cyan / green / pink / purple palette (`#8be9fd`, `#50fa7b`, `#ff79c6`, `#bd93f9`) and the Poppins typeface, which does not match the Nexus purple-and-amber identity used elsewhere in the catalogue. |
-
-## 💻 Developer API
-
-### Client Exports
-
-**None.** `nexus_deliveryjob` registers no client export. Integrate through the events and NUI callbacks below, and through `shared/functions.lua`.
-
-### Server Exports
-
-**None.** `nexus_deliveryjob` registers no server export. There is also no server-side "is this player on a route" accessor — mission state lives only in the client's `enMision` local. Read the database tables directly if you need state from another resource.
-
-### Events — Emitted
-
-| Event | Side | Payload | When |
-|---|---|---|---|
-| `delivery:internal:handleOpenMenu` | client → client (local) | *none* | Fired by `client/target.lua` when the depot target option is selected, and the handler in `client.lua` saves the civilian outfit and opens the menu. This is the seam between the two client files. |
-| `delivery:finishJob` | client → server | `ruta: table` — the full route object | The player finishes the route at the return point while in the driver's seat. The server reads `ruta.recompensa.min/max`, `ruta.xp`, `ruta.distance` and `ruta.label` from this payload. |
-| `delivery:purchaseVehicle` | client → server | `{ id }` — a `Config.ShopVehicles` key | Buy button in the shop. |
-| `delivery:sellOwnedVehicle` | client → server | `{ id }` | Sell confirmed in the My Vehicles modal. |
-| `delivery:upgradeSkill` | client → server | `{ id }` — a `Config.Skills` key | Unlock/Upgrade button on a skill card. |
-| `delivery:hireEmployee` | client → server | `{ id }` — a candidate id | Hire button in the hiring market. |
-| `delivery:fireEmployee` | client → server | `{ id }` — the `delivery_employees.id` row id | Fire button on a hired employee card. |
-| `delivery:withdrawCompanyBalance` | client → server | *none* | Withdraw button on the Bank page. |
-| `skinchanger:loadSkin` | client → client | `civilianOutfit` | Restoring the civilian outfit from the Cloakroom. |
-| `cd_garage:AddKeys` | client → client | plate string | `Functions.GiveKeys`, only on the `cd_garage` branch. |
-| `okokNotify:Alert`, `esx:showNotification`, `mythic_notify:client:SendAlert` | server → client | per resource | `Functions.NotifyServer`, depending on `Config.NotifySystem`. |
-
-### Events — Listened
-
-| Event | Side | Payload | Purpose |
-|---|---|---|---|
-| `delivery:client:openMenu` | server → client (`RegisterNetEvent`) | *none* | Public entry point. Relays to `delivery:internal:handleOpenMenu`, which saves the civilian outfit and opens the dashboard. **Use this one** to open the menu from another resource. |
-| `delivery:client:deliverPackage` | server → client (`RegisterNetEvent`) | *none* | Confirms a package delivery at the current point. This is the event the target zones fire. Clears the client's `isWaitingForDelivery` flag, which lets the mission loop advance. |
-| `delivery:client:finishJob` | server → client (`RegisterNetEvent`) | *none* | Confirms the route is finished. Checks the player is in the driver's seat of the mission vehicle, then triggers `delivery:finishJob` on the server and cleans up. This is the event the return-point target zone fires. |
-| `esx:playerLoaded` | client | `xPlayer` | Caches player data. |
-| `delivery:finishJob` | client → server (`RegisterNetEvent`) | `ruta: table` | Pays the route, writes history, awards XP and skill points. |
-| `delivery:purchaseVehicle` / `sellOwnedVehicle` / `upgradeSkill` / `hireEmployee` / `fireEmployee` / `withdrawCompanyBalance` | client → server (`RegisterNetEvent`) | see above | Economy actions. |
-
-### Server Callbacks
-
-| Callback | Returns | Purpose |
-|---|---|---|
-| `delivery:getPlayerData` | one object, see below | The single source of truth for the whole NUI. Registered with `ESX.RegisterServerCallback`, requested by the client with `ESX.TriggerServerCallback`, and pushed to the NUI as the `update` message's `info`. |
-
-Payload shape:
+**New in 1.4.1:** `skill_max_level` — shown when a player tries to upgrade a skill that is already maxed.
 
 ```lua
-{
-    name            = 'Firstname Lastname',  -- xPlayer.getName()
-    xp              = 0,                     -- delivery_players.xp
-    skillPoints     = 0,                     -- delivery_players.skill_points
-    companyBalance  = 0,                     -- delivery_players.company_balance
-    trips           = 0,                     -- COUNT(*)      from delivery_history
-    money           = 0,                     -- SUM(payment)  from delivery_history
-    km              = 0,                     -- SUM(distance) from delivery_history
-    ownedVehicles   = { 'speedo', … },       -- delivery_owned_vehicles.vehicle_id
-    leaderboard     = {                      -- top 5 by total earnings, server-wide
-        { name = '…', rank = 1, total_earnings = 0, total_trips = 0 },
-    },
-    routes          = {                      -- current rotation
-        { id = 'sandyshores', data = { … } },
-    },
-    shopVehicles    = Config.ShopVehicles,
-    availableCandidates = { … },             -- current hiring market
-    skills          = {                      -- every Config.Skills entry, merged with the player's level
-        { id = 'distance', name = '…', description = '…', maxLevel = 3, currentLevel = 0 },
-    },
-    myEmployees     = {
-        { id = 1, name = 'James', level = 1, salary = 500, rating = 1, traits = {…}, avatarImage = '…' },
-    },
-    maxEmployees    = Config.MaxEmployees,
-    workOutfitRequired = Config.WorkOutfitRequired,
-    routeTimeLeft    = 0,                    -- seconds until the next route rotation
-    employeeTimeLeft = 0,                    -- seconds until the next market rotation
+Locales['en'] = {
+    -- ...
+    skill_max_level = "This skill is already at its maximum level",
 }
 ```
 
-`salary` is always `500` because no shipped candidate defines the field — the server falls back to `template.salary or 500`.
+The NUI ships in English. To translate it, edit the texts in `html/index.html` and `html/script.js`.
 
-### NUI Callbacks
+---
 
-Registered on the client with `RegisterNUICallback`.
+## Compatibility
 
-| Callback | Payload | Returns | Effect |
-|---|---|---|---|
-| `closeMenu` | — | `{ ok = true }` | Release NUI focus. |
-| `refreshData` | — | `{ ok = true }` | Re-run the `delivery:getPlayerData` callback and push `update`. |
-| `isWearingOutfit` | — | `{ wearing: boolean }` | Component-by-component uniform check. Returns `true` unconditionally when `Config.WorkOutfitRequired` is `false`. |
-| `cancelCurrentJob` | — | `{ ok = true }` | Abort the active route: delete the vehicle, remove the blip and the target zone, then return to the dashboard. |
-| `notify` | `{ message, type }` | `{ ok = true }` | Lets the NUI raise a notification through `Functions.Notify` with `Functions.Lang('job_name')` as the title. The NUI uses this for its two hardcoded Spanish validation messages. |
-| `startQuickJob` | `{ id }` | `{ ok: boolean }` | Start a route with a spawned company van. `ok = false` if the route is unknown, the skill is missing or all spawn bays are blocked. |
-| `startOwnedVehicleJob` | `{ id, vehicle }` | `{ ok: boolean }` | Same, using an owned vehicle. `ok = false` if `vehicle` is nil. |
-| `setWorkOutfit` | — | `{ ok = true }` | Apply the configured uniform with native component/prop calls. |
-| `setCivilianOutfit` | — | `{ ok = true }` | Restore the cached civilian outfit via `skinchanger:loadSkin`. |
-| `withdrawCompanyBalance` | — | `{ ok = true }` | Relay to the server event. |
-| `upgradeSkill` / `purchaseVehicle` / `sellOwnedVehicle` / `hireEmployee` / `fireEmployee` | `{ id }` | `{ ok = true }` | Relay to the matching server event, then refresh after 500 ms. |
+| System | Supported |
+|---|---|
+| Framework | ESX Legacy (`es_extended`) |
+| Database | oxmysql |
+| Notifications | nexus_notify, okokNotify, mythic_notify, ESX, custom |
+| TextUI | okokTextUI, ESX help notification, custom |
+| Target | ox_target, qb-target, qtarget (auto-detected) |
+| Vehicle keys | cd_garage, custom, none |
+| Fuel | LegacyFuel, custom, none |
+| Clothing | illenium-appearance / skinchanger + esx_skin |
 
-### NUI Messages (Lua → JS)
+QBCore is **not** supported by this script.
 
-| Action | Payload | Effect |
+---
+
+## Developer API
+
+### Server events (net)
+
+All are triggered by the script's own client. The server validates every one of them.
+
+| Event | Payload | Behaviour |
 |---|---|---|
-| `show` | — | Reveal the dashboard and navigate to Home. |
-| `update` | `{ info }` | Repaint every page from the `delivery:getPlayerData` payload and (re)start the rotation countdowns. |
-| `inMission` | — | Hide the dashboard and show the "Active Delivery" cancel screen instead. |
+| `delivery:startJob` | `routeId` (string) | Stores the accepted route for that player. Ignored if the id is not in `Config.Rutas`. |
+| `delivery:cancelJob` | — | Clears the stored route. |
+| `delivery:finishJob` | `routeId` (string) | Pays only if `routeId` matches the stored route; reward/XP/distance are read from `Config.Rutas[routeId]`. The stored route is cleared either way. |
+| `delivery:purchaseVehicle` | `{ id }` | Buys `Config.ShopVehicles[id]` with bank money. |
+| `delivery:sellOwnedVehicle` | `{ id }` | Deletes the vehicle from the DB and, only if a row was removed, pays 50%. |
+| `delivery:upgradeSkill` | `{ id }` | Spends 1 skill point; refused if already at `maxLevel`. |
+| `delivery:hireEmployee` | `{ id }` | Hires a candidate (bank money, slot and duplicate checks). |
+| `delivery:fireEmployee` | `{ id }` | Fires one of the player's employees. |
+| `delivery:withdrawCompanyBalance` | — | Moves the company balance to cash. |
 
-### Editable Functions (functions.lua)
+> **Breaking change in 1.4.1:** `delivery:finishJob` no longer accepts a route table. If you built anything that triggered it manually, send the route id instead and make sure `delivery:startJob` was sent first.
 
-`shared/functions.lua` is in `escrow_ignore` and loaded as a `shared_script`, so all of the below exist on both client and server.
+### Server callback
 
-| Function | Signature | Called from | Purpose |
-|---|---|---|---|
-| `Functions.Notify` | `Functions.Notify(title, msg, type, time)` | **Client** — everywhere a player needs feedback: mission start, cancel, explosion, vehicle too far, not the driver, prop error, missing skill, blocked spawn bays, outfit on/off/not-found, and the `notify` NUI callback. | Route a client-side notification. `type` is passed through as the notification type (`'success'`, `'error'`, `'warning'`, `'primary'`, `'info'`); `time` defaults to `5000`. Branches on `Config.NotifySystem`. Return value ignored. The `nexus` branch uses `exports['nexus_notify']:Alert(title, msg, time, type, true)`. |
-| `Functions.NotifyServer` | `Functions.NotifyServer(player, title, msg, type, time)` | **Server** — every economy action: payout, XP points, purchase, sale, sale cooldown, skill upgrade, insufficient points/money/slots, hire, already hired, fire, withdrawal, nothing to withdraw. | Route a server→client notification. `player` is the server id. Branches on `Config.NotifySystem`. Return value ignored. |
-| `Functions.ShowText` | `Functions.ShowText(msg)` | **Client** — `textui` mode only: near the depot, and near a delivery point or the return point. | Show a persistent TextUI prompt. Branches on `Config.TextUISystem`. Return value ignored. |
-| `Functions.HideText` | `Functions.HideText()` | **Client** — when leaving a prompt radius, after an interaction, and on mission cancel. | Hide the prompt. Only `okok` and `custom` have an implementation; the ESX branch is intentionally absent because help notifications self-expire. Return value ignored. |
-| `Functions.GiveKeys` | `Functions.GiveKeys(vehicle)` | **Client** — `spawnVehicle`, immediately after `ESX.Game.SpawnVehicle` returns. | Hand the player keys to the mission vehicle. `vehicle` is the entity handle. Branches on `Config.UseKeysSystem`. Return value ignored. |
-| `Functions.SetFuel` | `Functions.SetFuel(vehicle, amount)` | **Client** — `iniciarMision`, called as `Functions.SetFuel(veh, 100.0)` after the player is warped in. | Set the mission vehicle's fuel. Branches on `Config.UseFuelSystem`. **The shipped `legacyfuel` and `trk_fueling` branches ignore `amount` and hardcode `100`** — honour `amount` in your own branch if you want partial tanks. Return value ignored. |
-| `Functions.Lang` | `Functions.Lang(key, ...)` → `string` | **Client and server** — every notification title and body, and the ox_target zone labels. | Resolve a locale string. Returns `Locales[Config.Locale][key]`, or the key itself if missing. Counts `%s` placeholders in the string and pads missing arguments with the literal `"nil"`, so a call with too few arguments renders `nil` instead of erroring. Marked *"do not touch below here"* — treat it as internal. |
+| Callback | Returns |
+|---|---|
+| `delivery:getPlayerData` (ESX) | Player stats, skills, employees, owned vehicles, leaderboard, available routes/candidates and refresh timers. |
 
-Example of wiring a custom notification stack:
+### Client events
 
-```lua
--- shared/functions.lua
--- Config.NotifySystem = 'custom'
+| Event | Description |
+|---|---|
+| `delivery:client:openMenu` | Opens the delivery menu (used by the target). |
+| `delivery:client:finishJob` | Finishes the active route at the return point (used by the target zone). |
+| `delivery:client:deliverPackage` | Internal delivery step. |
 
-function Functions.Notify(title, msg, type, time)
-    if Config.NotifySystem == 'custom' then
-        exports['my_notify']:show({ title = title, body = msg, kind = type, ms = time or 5000 })
-        return
-    end
-    -- …leave the shipped branches below intact
-end
+### functions.lua
 
-function Functions.NotifyServer(player, title, msg, type, time)
-    if Config.NotifySystem == 'custom' then
-        TriggerClientEvent('my_notify:show', player, title, msg, type, time or 5000)
-        return
-    end
-end
-```
+| Function | Side | Purpose |
+|---|---|---|
+| `Functions.Notify(title, msg, type, time)` | Client | Notification bridge (`Config.NotifySystem`). |
+| `Functions.NotifyServer(player, title, msg, type, time)` | Server | Notification bridge from server. |
+| `Functions.ShowText(msg)` / `Functions.HideText()` | Client | TextUI bridge. |
+| `Functions.GiveKeys(vehicle)` | Client | Keys bridge, called when the job vehicle spawns. |
+| `Functions.SetFuel(vehicle, amount)` | Client | Fuel bridge, called when the job vehicle spawns. |
+| `Functions.Lang(key, ...)` | Shared | Locale lookup with `%s` formatting. |
 
-### Database Schema
+Add your own system by filling the `custom` branch of each function and setting the matching config value to `"custom"`.
 
-Five tables, imported manually from `tables.sql`. Not created at runtime.
+### SQL schema
 
 ```sql
--- Per-player progression and company balance. One row per identifier, upserted.
-CREATE TABLE `delivery_players` (
-  `identifier`      VARCHAR(60) NOT NULL,
-  `xp`              INT(11) NOT NULL DEFAULT 0,
-  `skill_points`    INT(11) NOT NULL DEFAULT 0,
+CREATE TABLE IF NOT EXISTS `delivery_players` (
+  `identifier` VARCHAR(60) NOT NULL,
+  `xp` INT(11) NOT NULL DEFAULT 0,
+  `skill_points` INT(11) NOT NULL DEFAULT 0,
   `company_balance` INT(11) NOT NULL DEFAULT 0,
   PRIMARY KEY (`identifier`)
 );
 
--- One row per completed route. Feeds the Home stats and the leaderboard.
-CREATE TABLE `delivery_history` (
-  `id`                INT(11) NOT NULL AUTO_INCREMENT,
+CREATE TABLE IF NOT EXISTS `delivery_history` (
+  `id` INT(11) NOT NULL AUTO_INCREMENT,
   `player_identifier` VARCHAR(60) NOT NULL,
-  `route_id`          VARCHAR(50) NOT NULL,   -- NOTE: the route LABEL is written here, not the key
-  `payment`           INT(11) NOT NULL,
-  `distance`          DECIMAL(10,2) NOT NULL DEFAULT 0.00,
-  `completion_date`   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `route_id` VARCHAR(50) NOT NULL,          -- route label
+  `payment` INT(11) NOT NULL,
+  `distance` DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  `completion_date` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   INDEX `player_identifier_index` (`player_identifier`)
 );
 
--- Vehicles bought from the in-NUI shop. vehicle_id is a Config.ShopVehicles key.
-CREATE TABLE `delivery_owned_vehicles` (
-  `id`                INT(11) NOT NULL AUTO_INCREMENT,
+CREATE TABLE IF NOT EXISTS `delivery_owned_vehicles` (
+  `id` INT(11) NOT NULL AUTO_INCREMENT,
   `player_identifier` VARCHAR(60) NOT NULL,
-  `vehicle_id`        VARCHAR(50) NOT NULL,
+  `vehicle_id` VARCHAR(50) NOT NULL,        -- key of Config.ShopVehicles
   PRIMARY KEY (`id`)
 );
 
--- Skill levels. skill_id is a Config.Skills key.
-CREATE TABLE `delivery_player_skills` (
-  `id`                INT(11) NOT NULL AUTO_INCREMENT,
+CREATE TABLE IF NOT EXISTS `delivery_player_skills` (
+  `id` INT(11) NOT NULL AUTO_INCREMENT,
   `player_identifier` VARCHAR(60) NOT NULL,
-  `skill_id`          VARCHAR(50) NOT NULL,
-  `skill_level`       INT(11) NOT NULL DEFAULT 1,
+  `skill_id` VARCHAR(50) NOT NULL,          -- key of Config.Skills
+  `skill_level` INT(11) NOT NULL DEFAULT 1,
   PRIMARY KEY (`id`),
   UNIQUE KEY `player_skill_unique` (`player_identifier`, `skill_id`)
 );
 
--- Hired employees. employee_name holds the candidate ID (e.g. 'cand01'), not the display name.
-CREATE TABLE `delivery_employees` (
-  `id`                INT(11) NOT NULL AUTO_INCREMENT,
-  `owner_identifier`  VARCHAR(60) NOT NULL,
-  `employee_name`     VARCHAR(50) NOT NULL,
-  `level`             INT(11) NOT NULL DEFAULT 1,
+CREATE TABLE IF NOT EXISTS `delivery_employees` (
+  `id` INT(11) NOT NULL AUTO_INCREMENT,
+  `owner_identifier` VARCHAR(60) NOT NULL,
+  `employee_name` VARCHAR(50) NOT NULL,     -- id of Config.AvailableEmployees
+  `level` INT(11) NOT NULL DEFAULT 1,
   PRIMARY KEY (`id`)
 );
 ```
 
-Notes that matter when you query these tables yourself:
+The leaderboard joins `delivery_history` with the ESX `users` table (`firstname`, `lastname`).
 
-- `identifier` is the raw ESX `xPlayer.identifier` (`license:…` / `char1:…` depending on your setup), the same value as `users.identifier`, which is what the leaderboard join relies on.
-- `delivery_history.route_id` receives `ruta.label` (e.g. `"Delivery on Sandy"`), **not** the `Config.Rutas` key. Renaming a route's label splits its history.
-- `delivery_employees.employee_name` receives the candidate **id** (`cand01`), and `level` is copied from the candidate at hire time, so changing a candidate's `level` in config does not retroactively change existing hires.
-- `delivery_owned_vehicles` has no unique key on `(player_identifier, vehicle_id)`; duplicate ownership is only prevented in application logic.
-- `delivery_player_skills.skill_level` is incremented with `ON DUPLICATE KEY UPDATE skill_level = skill_level + 1` and is **not** capped at `maxLevel` server-side (the NUI disables the button at max, which is the only guard).
+### Integration example
 
-Useful queries:
-
-```sql
--- Top earners
-SELECT u.firstname, u.lastname, SUM(d.payment) AS earned, COUNT(*) AS trips
-FROM delivery_history d JOIN users u ON u.identifier = d.player_identifier
-GROUP BY d.player_identifier ORDER BY earned DESC LIMIT 10;
-
--- Everything one player owns
-SELECT p.xp, p.skill_points, p.company_balance,
-       (SELECT GROUP_CONCAT(vehicle_id) FROM delivery_owned_vehicles WHERE player_identifier = p.identifier) AS vehicles,
-       (SELECT COUNT(*)                 FROM delivery_employees      WHERE owner_identifier  = p.identifier) AS staff
-FROM delivery_players p WHERE p.identifier = 'license:xxxx';
-```
-
-### Integration Example
-
-A third-party resource that gives a Discord-linked bonus on every completed route, keeps its own analytics, and opens the delivery menu from a phone app instead of the depot NPC. Nothing escrowed is touched.
+Read a player's delivery stats from another server resource:
 
 ```lua
--- ────────────────────────────────────────────────────────────
--- my_delivery_addon/server.lua
--- ────────────────────────────────────────────────────────────
+local function GetDeliveryStats(identifier)
+    local row = MySQL.single.await(
+        'SELECT COUNT(*) AS trips, IFNULL(SUM(payment),0) AS earned, IFNULL(SUM(distance),0) AS km FROM delivery_history WHERE player_identifier = ?',
+        { identifier }
+    )
+    local xp = MySQL.scalar.await('SELECT xp FROM delivery_players WHERE identifier = ?', { identifier }) or 0
+    return { trips = row.trips, earned = row.earned, km = row.km, xp = xp }
+end
 
--- The delivery job has no server-side "route completed" broadcast of its own,
--- so hook the same event it listens to. Our handler runs alongside theirs.
-RegisterNetEvent('delivery:finishJob', function(ruta)
-    local src     = source
-    local xPlayer = ESX.GetPlayerFromId(src)
-    if not xPlayer or not ruta then return end
-
-    -- Loyalty bonus: +10% on every route, paid separately
-    local base  = math.floor(((ruta.recompensa and ruta.recompensa.max) or 0))
-    local bonus = math.floor(base * 0.10)
-    if bonus > 0 then
-        xPlayer.addAccountMoney('bank', bonus)
-        TriggerClientEvent('esx:showNotification', src,
-            ('Loyalty bonus: $%s'):format(bonus))
-    end
-
-    -- Our own analytics table, keyed on the route KEY rather than the label,
-    -- so renaming a route later does not split the data.
-    local routeKey = 'unknown'
-    for id, cfg in pairs(Config.Rutas) do
-        if cfg.label == ruta.label then routeKey = id break end
-    end
-
-    MySQL.Async.execute([[
-        INSERT INTO my_delivery_stats (identifier, route_key, route_type, bonus, at)
-        VALUES (@id, @key, @type, @bonus, @at)
-    ]], {
-        ['@id']    = xPlayer.identifier,
-        ['@key']   = routeKey,
-        ['@type']  = ruta.type or 'normal',
-        ['@bonus'] = bonus,
-        ['@at']    = os.time(),
-    })
-end)
-
--- Open the delivery dashboard from a phone app / another menu
-RegisterNetEvent('my_delivery_addon:openRemotely', function()
-    TriggerClientEvent('delivery:client:openMenu', source)
-end)
-
--- Read a player's delivery standing for an external leaderboard or a bank app
-exports('getDeliveryStanding', function(identifier)
-    local p = MySQL.Sync.fetchAll(
-        'SELECT xp, skill_points, company_balance FROM delivery_players WHERE identifier = @id',
-        { ['@id'] = identifier })[1] or { xp = 0, skill_points = 0, company_balance = 0 }
-
-    local h = MySQL.Sync.fetchAll([[
-        SELECT COUNT(*) AS trips, IFNULL(SUM(payment),0) AS earned, IFNULL(SUM(distance),0) AS km
-        FROM delivery_history WHERE player_identifier = @id
-    ]], { ['@id'] = identifier })[1]
-
-    local staff = MySQL.Sync.fetchAll(
-        'SELECT COUNT(*) AS n FROM delivery_employees WHERE owner_identifier = @id',
-        { ['@id'] = identifier })[1]
-
-    return {
-        xp        = p.xp,
-        points    = p.skill_points,
-        balance   = p.company_balance,
-        trips     = h.trips,
-        earned    = h.earned,
-        km        = h.km,
-        employees = staff.n,
-    }
-end)
-
-
--- ────────────────────────────────────────────────────────────
--- my_delivery_addon/client.lua  —  a radio call on hazardous routes
--- ────────────────────────────────────────────────────────────
-
--- Nexus fires this locally each time a package is delivered.
-AddEventHandler('delivery:client:deliverPackage', function()
-    TriggerEvent('my_hud:client:toast', 'Package delivered')
+RegisterCommand('deliverystats', function(source)
+    local xPlayer = ESX.GetPlayerFromId(source)
+    if not xPlayer then return end
+    local s = GetDeliveryStats(xPlayer.identifier)
+    xPlayer.showNotification(('Trips: %s | Earned: $%s | XP: %s'):format(s.trips, s.earned, s.xp))
 end)
 ```
 
-To add an entirely new skill end-to-end:
+Adding a custom notification system:
 
 ```lua
--- 1) shared/config.lua — define the skill
-Config.Skills.night = {
-    name        = "Night Shifts",
-    description = "Certifies you for after-hours runs.",
-    maxLevel    = 2,
-}
+-- shared/config.lua
+Config.NotifySystem = "custom"
 
--- 2) shared/config.lua — add a route that requires it at max level
-Config.Rutas.docks_night = {
-    label = "Night run — Terminal",
-    description = "After-hours delivery at the docks.",
-    type = "expensive",
-    requiredSkill = "night",
-    deliveryPoints = { vector3(1206.0, -3113.0, 5.5) },
-    recompensa = { min = 9000, max = 11000 },
-    xp = 300,
-    distance = 10.1,
-}
-
--- 3) html/script.js — give it an icon in BOTH skillIcons maps,
---    otherwise it renders with a question mark:
---    const skillIcons = { distance: '…', expensive: '…', dangerous: '…',
---                         night: 'fa-solid fa-moon' };
+-- shared/functions.lua
+elseif Config.NotifySystem == "custom" then
+    exports['my_notify']:Send(msg, type, time or 5000)
 ```
 
-No database change is needed — `delivery_player_skills` stores the skill id as a string.
+---
 
-## ❓ FAQ
+## FAQ
 
-**Nothing happens at the depot — no NPC, no marker, no target option.**
-Check `Config.InteractionMethod` first. In `target` mode the dispatcher is created by `client/target.lua`, which requires ox_target, qb-target or qtarget to be present; with none of them the console prints `[DeliveryJob] ADVERTENCIA: No se encontró un sistema de target compatible.` and nothing is created. In `textui` mode the NPC only spawns if `Config.UseNPC = true`, otherwise you get a marker. Also confirm `Config.NPC.coords` is where you are standing.
+**The script prints "the folder must be named nexus_deliveryjob".**
+Rename the resource folder to exactly `nexus_deliveryjob`.
 
-**I set `Config.UseNPC = false` but an NPC still appears.**
-`Config.UseNPC` is only honoured in `textui` mode. In `target` mode the ped is always created, because a target zone needs an entity to attach to. If you want a marker instead, switch to `textui`.
+**Players can't open the menu.**
+If `Config.JobNeed = true`, they need the job in `Config.JobName`. With `InteractionMethod = 'target'` make sure ox_target, qb-target or qtarget is started *before* the script.
 
-**The target option is in Spanish ("Abrir Menú de Repartos") even with `Config.Locale = 'en'`.**
-Those labels are hardcoded Spanish in `client/target.lua`. That file is **not** escrowed, so edit it directly — ideally replacing the string with `Functions.Lang('open_delivery_menu')`.
+**"You must wear the work uniform" even with the uniform on.**
+The check compares every component/prop of `Config.WorkOutfit` exactly. Put the uniform on from the Cloakroom, or set `Config.WorkOutfitRequired = false`.
 
-**Delivering a package shows "Entregar Paquete" in Spanish, but only on some servers.**
-The ox_target branch uses the locale key; the qb-target and qtarget branches use a hardcoded Spanish literal in `client/client.lua`, which **is** inside the escrow and cannot be edited. Switching to ox_target is the only workaround.
+**"All spawn points are occupied".**
+Add more points to `Config.VehicleSpawns` or enable `Config.ClearZoneEnabled`.
 
-**Half the NUI is English and half is Spanish.**
-That is how it ships, and `Config.Locale` does not affect the NUI at all — the config comment says as much. `html/index.html` is English and the dynamic strings in `html/script.js` are Spanish. Both files are unencrypted, so translate them directly.
+**A route with a required skill can't be started.**
+The skill must be at its `maxLevel`, not just unlocked.
 
-**"You must select one of your vehicles" even though I own one.**
-Owning a vehicle is not the same as selecting it. Go to **My Vehicles**, click the vehicle in the list, then press **Seleccionar para Trabajo** in the detail panel — the button should read **Seleccionado**. Only then will an Owned Vehicle route start.
+**I finished a route but didn't get paid.**
+Payment requires the route to have been started normally from the menu. Restarting the resource mid-route clears the active route and that run is not paid.
 
-**A route is greyed out / "You need the '…' skill at maximum level".**
-A route with `requiredSkill` needs that skill at its **full `maxLevel`**, not level 1. With the default `maxLevel = 3` that is three skill points, which is 3000 XP at the default conversion rate.
+**How do I add a new vehicle to the shop?**
+Add an entry to `Config.ShopVehicles` and a PNG with the same key in `html/img/`.
 
-**I have XP but no skill points.**
-Points are awarded only when you cross a `XP_PER_SKILL_POINT` boundary on completing a route. At 999 XP you still have zero points. The award is computed from the tier difference, so a single route that takes you from 900 to 2100 XP correctly grants two points at once.
+**How do I translate the menu?**
+Notifications use `Config.Locale`. The NUI is in English; edit `html/index.html` and `html/script.js` to translate it.
 
-**My employees are not paying anything.**
-Three conditions. The ticker runs every `Config.EmployeePayoutInterval` minutes (30 by default) — so nothing happens for the first half hour. It only pays players who are **online** when it fires. And the money goes into `company_balance`, not into your pocket: go to the **Bank** page and press **Withdraw Earnings** (it pays out as cash, not into your bank account).
+**Does it work with QBCore?**
+No, this script is ESX only.
 
-**A hired employee shows "Salario: $500" but nothing is ever deducted.**
-There is no salary mechanic. No candidate in `Config.AvailableEmployees` defines a `salary` field, so the server substitutes a flat `500` purely for display. Hiring is a one-time cost (`cost`) and employees only ever generate income.
+---
 
-**I fired an employee and lost the hiring fee.**
-By design — `cost` is a one-time payment and firing refunds nothing. Re-hiring the same candidate costs the full amount again.
+## Changelog
 
-**The vehicle never spawns and I get "All spawn points are occupied".**
-All ten `Config.VehicleSpawns` positions had a vehicle within 3 m. Either clear the alley or add more positions. Keeping `Config.ClearZoneEnabled = true` with a sensible radius is what normally prevents this, since it suppresses ambient traffic around the depot.
+### 1.4.1
+- **Security:** `delivery:finishJob` is now server-authoritative. The client only sends the route id; the server stores the route accepted at start (`delivery:startJob`), checks it matches on finish and reads reward/XP/distance from `Config.Rutas`.
+- **Security:** selling a vehicle only pays after the database confirms the vehicle was deleted.
+- **Security:** skill upgrades validate `maxLevel` on the server.
+- **SQL:** `tables.sql` uses `CREATE TABLE IF NOT EXISTS` (safe to re-import).
+- **Locales:** new key `skill_max_level` in all 7 languages.
+- **Language:** English is now the default everywhere (NUI texts, default skill names/descriptions, employee traits, target label, console messages).
+- **Escrow:** NUI files listed in `escrow_ignore`.
 
-**"The delivery vehicle is too far away" even though I am standing on the marker.**
-`Config.MaxDistanceToDeliver` (25 m by default) measures the distance from the **vehicle** to the delivery point, not from you. Park closer, or raise the value. This check is what stops players from doing the route in a faster private car.
-
-**The cargo keeps exploding.**
-Only `type = "dangerous"` routes arm the watchdog, and only when `Config.DangerousGoodsExplosion = true`. Raise `Config.ExplosionCrashForce` to tolerate harder impacts and lower `Config.DangerousGoodsHealthPercent` (e.g. to `0.5`) to tolerate more total damage. Note that **no shipped route is `dangerous`**, so if cargo is exploding, a route you added is the cause.
-
-**"You must be in the driver's seat to finish the route."**
-Exactly that: the completion check requires `GetPedInVehicleSeat(vehicle, -1) == PlayerPedId()`. Finishing from the passenger seat, or on foot next to the van, is not allowed.
-
-**I cannot start a route — it says I need the uniform, but I am wearing it.**
-The check compares every component and prop in `Config.WorkOutfit` against your ped, drawable *and* texture. If any single one differs the check fails. The usual cause is `Config.WorkOutfit` holding drawable ids from a different clothing pack than the one you actually run. Press **Put On** in the Cloakroom first; if that still does not satisfy it, your config values do not match your clothing pack. Note also that `torso` and `vest` both map to component 11, so defining both is self-contradictory.
-
-**My civilian clothes were not restored ("Your saved civilian clothes were not found").**
-The outfit is captured with `esx_skin:getPlayerSkin` the first time you open the menu in a session. If you put the uniform on through some other route, or `esx_skin` / `skinchanger` is not running, there is nothing cached to restore.
-
-**Can I run this on QBCore?**
-No. The resource is ESX-only: `getSharedObject()` is called at file scope in three files, `@es_extended/imports.lua` is a shared script, and the server uses ESX accounts, ESX server callbacks, `ESX.Game.SpawnVehicle` and the ESX `users` table for the leaderboard. There is no QBCore branch anywhere.
-
-**Importing `tables.sql` fails with "table already exists".**
-The statements use plain `CREATE TABLE`, not `CREATE TABLE IF NOT EXISTS`. Import it once on a fresh database, or add `IF NOT EXISTS` to each statement before re-running it.
-
-**My shop vehicle shows a broken image.**
-The image path is `html/img/<key>.png`, where `<key>` is the **key** in `Config.ShopVehicles`, not the `model`. Add a PNG named after the key to `html/img/` and add it to the `files` block in `fxmanifest.lua` (the shipped glob `html/img/*.png` already covers it).
-
-**The leaderboard is empty.**
-It joins `delivery_history` against the ESX `users` table on `identifier`. If your framework stores identifiers differently in the two tables — which happens after a multicharacter migration — the join returns nothing. Verify with the "Top earners" query in the Database Schema section.
-
-**Icons are missing / the font looks wrong.**
-`html/index.html` loads Font Awesome 6.2.0 from cdnjs and Poppins from Google Fonts. Without outbound internet from the game client both fail and the UI degrades to boxes and a generic sans-serif. Self-host both and change the two `<link>` tags.
-
-**There is a tutorial overlay in the HTML but I never see it.**
-The tutorial markup exists in `html/index.html`, including Okay and "Don't show again" buttons, but `html/script.js` never shows it and never wires those buttons up. It is unfinished UI in this version.
-
-### Before opening a ticket
-
-- Make sure the resource folder is named exactly **`nexus_deliveryjob`**. Any other name aborts the resource.
-- Make sure you are on the latest version of the resource (**v1.4**, per `fxmanifest.lua`).
-- Confirm you imported `tables.sql` — the tables are **not** created automatically, and almost every "nothing saves" report traces back to this.
-- Confirm `ensure oxmysql` and `ensure es_extended` come **before** `ensure nexus_deliveryjob`, along with your target, notify and clothing resources.
-- Set `Config.DebugPrints = true` and check the server console for the route and employee refresh lines, then set it back to `false`.
-- Re-read this FAQ page.
-
-## 📋 Changelog
-
-**v1.4 — current release** (per `fxmanifest.lua`: `version "1.4"`, `description 'The most advanced and unique delivery job script'`)
-
-No version history file ships with the resource. What the code itself documents about the current state:
-
-- All seven target languages (`es`, `en`, `fr`, `pt`, `it`, `de`, `zh-CN`) are present with matching 42-key sets, so the Lua-side localisation set is complete as of this release. The NUI is not covered by it, which the config comment acknowledges explicitly.
-- `shared/_resource.lua` carries the standard Nexus resource-name guard, which duplicates the older inline checks still present at the top of `client/client.lua` and `server/server.lua`.
-- `Functions.SetFuel` still contains a `trk_fueling` branch marked `--DONT USE THIS`, a leftover from development that should not be selected.
-- The explosion system, the `expensive` skill and the `dangerous` skill have no shipped route that exercises them, so those features are present but unused in the default configuration.
+### 1.4
+- Previous release.
