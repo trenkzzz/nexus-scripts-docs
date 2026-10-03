@@ -1,25 +1,35 @@
 # Nexus Car Radio
 
-Immersive in-vehicle radio for FiveM. Drivers stream YouTube straight from a sleek infotainment-style interface, other players hear the car with realistic spatial audio, and every player keeps persistent personal playlists in the database.
+> Immersive, synced YouTube radio for any vehicle, with spatial audio and persistent personal playlists.
+
+**Version:** 2.1.0 · **Framework(s):** Standalone (ESX, QBCore and any other framework via hooks) · **Database:** oxmysql
 
 ---
 
-## Features
+## 📝 Description
+
+Nexus Car Radio brings an immersive in-vehicle radio to FiveM. The driver streams YouTube straight from a sleek infotainment-style interface, nearby players hear the car with realistic spatial audio, and every player keeps their own persistent playlists saved in the database.
+
+Playback is driver-owned and synced for everyone in range: progress is computed from a shared real-time clock, so passengers and bystanders always hear the track at the right position. The resource is standalone — it works out of the box and integrates with ESX, QBCore or any other framework through a small set of editable hook functions.
+
+---
+
+## ✨ Features
 
 - **YouTube streaming** – paste a link and play it from the vehicle.
 - **Spatial audio** – nearby players hear the car radio with a logarithmic fall-off. Full volume inside `Config.FullVolumeDistance`, silent beyond `Config.MaxDistance`.
-- **Driver-owned radio** – only the driver who started the radio can control it (play, pause, seek, volume, loop, stop).
+- **Driver-owned radio** – only the player who started the radio can control it (play, pause, seek, volume, loop, stop). Other occupants can listen but not control it.
 - **Persistent playlists** – each player has their own playlists saved in the database (oxmysql).
 - **Full controls** – play / pause, seek, clickable progress bar, volume, loop.
 - **Mini HUD and key bindings** – control playback and volume without opening the full UI.
-- **Synced for everyone** – progress is computed from a shared real-time clock.
+- **Synced for everyone** – progress is computed from a shared real-time clock, not a local timer, so it stays accurate for every listener.
 - **Server-side safety** – ownership checks on every action, volume clamped to 0.0 – 1.0, playlist input validated.
 - **7 languages** – en, es, de, fr, it, pt, zh.
-- **Open configuration** – `config.lua`, `functions.lua`, locales and the whole NUI are not encrypted.
+- **Open configuration** – `config.lua`, `functions.lua`, locales and the whole NUI are not encrypted, so you can adapt them freely.
 
 ---
 
-## Dependencies
+## 📋 Dependencies
 
 | Resource | Required | Notes |
 |----------|----------|-------|
@@ -30,7 +40,7 @@ Standalone: no ESX or QBCore required.
 
 ---
 
-## Installation
+## ⚙️ Installation
 
 1. Drop the `nexus_carradio` folder into your `resources` directory. **The folder must keep the name `nexus_carradio`.**
 2. Make sure `oxmysql` starts before it. In `server.cfg`:
@@ -56,7 +66,7 @@ All keys can be rebound in the FiveM key bindings menu.
 
 ---
 
-## Configuration
+## 🔧 Configuration
 
 `shared/config.lua`:
 
@@ -78,7 +88,7 @@ All keys can be rebound in the FiveM key bindings menu.
 
 ---
 
-## Locales & Editable Strings
+## 🌐 Locales & Editable Strings
 
 Language files are in `locales/` (`en`, `es`, `de`, `fr`, `it`, `pt`, `zh`). Change `Config.Locale` to switch language. To add a language, copy `locales/en.lua`, translate the values, set `Config.Locale` to its name and list the file under `files` in `fxmanifest.lua`.
 
@@ -99,7 +109,7 @@ Interface texts live in `html/` and can be edited freely.
 
 ---
 
-## Compatibility
+## 🔗 Compatibility
 
 - **Game:** FiveM (gta5), `cerulean` manifest.
 - **Server:** OneSync and oxmysql required.
@@ -108,15 +118,13 @@ Interface texts live in `html/` and can be edited freely.
 
 ---
 
-## Developer API
+## 💻 Developer API
 
 ### Exports
 
 This resource does not expose exports.
 
-### Events
-
-**Client → Server**
+### Events — Listened (Client → Server)
 
 | Event | Arguments | Description |
 |-------|-----------|-------------|
@@ -134,7 +142,7 @@ This resource does not expose exports.
 | `nexus_carradio:saveSong` | `playlistId, url, title` | Adds a song. |
 | `nexus_carradio:removeSong` | `playlistId, songIndex` | Removes a song. |
 
-**Server → Client**
+### Events — Emitted (Server → Client)
 
 | Event | Arguments | Description |
 |-------|-----------|-------------|
@@ -146,7 +154,7 @@ This resource does not expose exports.
 
 `radioData` fields: `url`, `title`, `playing`, `startedAt` (milliseconds, `os.time() * 1000`), `currentTime`, `volume`, `ownerId`, `looped`.
 
-### Functions
+### Editable Functions
 
 | Function | Side | Description |
 |----------|------|-------------|
@@ -203,7 +211,7 @@ end
 
 ---
 
-## FAQ
+## ❓ FAQ
 
 **Who can control the radio?**
 The player who started it. Other players in the car can listen but not control it.
@@ -225,7 +233,7 @@ Some YouTube videos block embedding. Try another link.
 
 ---
 
-## Changelog
+## 📋 Changelog
 
 ### 2.1.0
 - Fixed the progress clock: the server now sends `os.time() * 1000` so the UI and the server use the same clock.
@@ -240,4 +248,3 @@ Some YouTube videos block embedding. Try another link.
 ### 2.0.0
 - Persistent playlists with oxmysql.
 - Mini HUD, key bindings and spatial audio improvements.
-
