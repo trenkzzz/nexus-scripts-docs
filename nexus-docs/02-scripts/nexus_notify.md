@@ -1,6 +1,10 @@
 # Nexus Notify
 
-A fully client-configurable notification system for FiveM: every player drags, scales and styles their own notifications, and any resource can push them with a single export — from both client and server.
+> A fully client-configurable notification system for FiveM: every player drags, scales and styles their own notifications, and any resource can push them with a single export — from both client and server.
+
+**Version:** 3.1.1 · **Type:** Standalone
+
+---
 
 ## 📝 Description
 
@@ -11,6 +15,8 @@ Internally the resource is deliberately thin. `client.lua` owns a table of curre
 The notification stack is positional-aware: because the player can anchor notifications in any corner, the NUI recomputes `left/right/top/bottom`, `transform-origin`, `flex-direction` and `align-items` from the saved coordinates, and inserts new cards with `prepend` instead of `appendChild` when the anchor sits in the lower half of the screen. The result is that notifications always grow *away* from the screen edge regardless of where the player parked them.
 
 Three notification shapes are supported through the same `Alert` export: a standard timed notification with a progress bar, a **persistent** notification addressed by a caller-supplied `persistentId` that stays on screen until explicitly removed (and that *updates in place* if `Alert` is called again with the same id), and a **button** notification that renders clickable buttons which fire client events back into your own resource. The server side is a thin relay: the same `Alert` / `Remove` export names exist server-side with a leading `target` argument, validate the target, and forward over `nexus_notify:client:Alert` / `nexus_notify:client:Remove`.
+
+---
 
 ## ✨ Features
 
@@ -32,6 +38,8 @@ Three notification shapes are supported through the same `Alert` export: a stand
 - **Four optional debug commands** — gated behind `EnableDebugCommands`: one notification per type, show a persistent notification, hide that persistent notification, and show a two-button notification with working example handlers. All four register `chat:addSuggestion` entries.
 - **Framework-free** — no ESX, no QBCore, no database, no `ox_lib`. It runs on a bare server.
 
+---
+
 ## 📋 Dependencies
 
 | Dependency | Required | Notes |
@@ -42,6 +50,8 @@ Three notification shapes are supported through the same `Alert` export: a stand
 | Internet access on the client | ⚠️ Soft | `html/style.css` imports the Roboto font from Google Fonts. Without internet the NUI falls back to the generic sans-serif; nothing breaks. |
 
 The only hard requirement is that **the resource folder must be named exactly `nexus_notify`**. Both `_resource.lua` and `client.lua`/`server.lua` validate this on start and abort if it differs, because the export namespace (`exports['nexus_notify']`) and the NUI callback URLs (`https://nexus_notify/...`, hardcoded in `html/script.js`) depend on that exact name.
+
+---
 
 ## ⚙️ Installation
 
@@ -60,6 +70,8 @@ The only hard requirement is that **the resource folder must be named exactly `n
 7. **Optional — add your own sounds.** Drop `.wav`/`.ogg` files into `html/sounds/` and point the entries of `Config.Sounds` at them. `html/sounds/*` is already covered by the `files` block in the manifest, so no manifest edit is needed.
 8. **Restart.** A full server restart is recommended so other resources pick up the export.
 9. **Verify.** In game, run `/showpos` — you should get one notification of every configured type. Then run `/notifymove`, drag the panel, set a scale, and press **Save & Close**.
+
+---
 
 ## 🔧 Configuration
 
@@ -143,6 +155,8 @@ Shipped types: `info` (`#3b82f6`), `success` (`#00FF00`), `warning` (`#f59e0b`),
 | `Config.DebugPersistentHide` | string | `'ndebug_hide'` | Removes the `debug_persistent` notification. |
 | `Config.DebugButtonsCommand` | string | `'ndebug_buttons'` | Shows a 15s `info` notification with **Accept** / **Deny** buttons wired to two example handlers that reply with a success/error notification. |
 
+---
+
 ## 🌐 Locales & Editable Strings
 
 **Nexus Notify has no locale system, and it does not need one for its own output** — every string a player sees in a notification is the `title` and `text` *you* pass in from your own resource, in whatever language you want.
@@ -156,6 +170,8 @@ Shipped types: `info` (`#3b82f6`), `success` (`#00FF00`), `warning` (`#f59e0b`),
 
 **Reported to the incident log:** the `/showpos` notification body, the four debug notification bodies and the resource-name error messages are hardcoded **inside the escrow** and cannot be translated by a customer. `_resource.lua` additionally prints its message in Spanish while the rest of the resource is in English. Neither affects normal gameplay — `/showpos` is a diagnostic command and the debug commands are off by default — but a `Config.Text = { ... }` block in `config.lua` would remove the limitation.
 
+---
+
 ## 🔗 Compatibility
 
 | System | How it integrates |
@@ -166,6 +182,8 @@ Shipped types: `info` (`#3b82f6`), `success` (`#00FF00`), `warning` (`#f59e0b`),
 | **Nexus Scripts catalogue** | Other Nexus resources select their notification backend through their own `Config.NotifySystem` / `Config.NotifyStyle` key and their own `functions.lua`; choosing the `nexus` / `nexus_notify` branch there makes them call this resource's `Alert` export. Nexus Notify itself needs no configuration for that. |
 | **GTA colour codes** | The NUI parses `~r~ ~g~ ~b~ ~y~ ~o~ ~p~` + `~s~` itself, so messages written for ESX/QBCore native notifications display correctly without rewriting them. |
 | **TextUI / target / keys / fuel / banking** | Not used. This resource has no world interaction at all. |
+
+---
 
 ## 💻 Developer API
 
@@ -436,6 +454,8 @@ Adding your own notification type takes no code at all — append to `Config.Sty
 exports['nexus_notify']:Alert('Heist', 'Vault drilling started.', 8000, 'heist', true)
 ```
 
+---
+
 ## ❓ FAQ
 
 **The `key` on my notification buttons does nothing — the button works when clicked, but pressing the key does not.**
@@ -486,9 +506,15 @@ No. Player layout preferences live in client-side KVP only. They do not follow t
 - If a type renders wrong, check that its `Config.Styles` entry has all four fields and that the `iconFile` exists in `html/icons/`.
 - Review this FAQ page.
 
+---
+
 ## 📋 Changelog
 
 **Current version: 3.1.1** (`fxmanifest.lua`)
+
+- `3.1.1` — current release. Full/minimalist dual style with a per-player toggle, config-driven notification types (`Config.Styles`), per-type sounds, persistent and button notifications, client and server export pairs, player-saved position and scale via KVP, and four optional debug commands.
+
+No earlier version history is recorded in the resource.
 
 - `3.1.1` — current release. Full/minimalist dual style with a per-player toggle, config-driven notification types (`Config.Styles`), per-type sounds, persistent and button notifications, client and server export pairs, player-saved position and scale via KVP, and four optional debug commands.
 
