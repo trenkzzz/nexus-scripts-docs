@@ -2,11 +2,11 @@
 
 > A bounty-hunter tablet for FiveM: put a price on a player's head, let hunters take the contract, track the target and cash in. For ESX and QBCore.
 
-**Version:** 1.1.0 · **Frameworks:** ESX, QBCore · **Database:** oxmysql
+**Version:** 1.1.0 · **Framework(s):** ESX, QBCore · **Database:** oxmysql
 
 ---
 
-## Description
+## 📝 Description
 
 `nexus_bounty` adds an in-game tablet (opened with `/bounty` by default) where players create, browse and manage player-vs-player bounty contracts.
 
@@ -16,7 +16,7 @@ Contract creators can edit the picture and clues of their contracts or cancel th
 
 ---
 
-## Features
+## ✨ Features
 
 - **Tablet UI** — homescreen with live counters (players online, active contracts) and four apps: Create Contract, Active Contracts, My Panel, Leaderboard.
 - **Name search with anti-metagaming** — targets are searched by character name, online first and then in the database (offline players). Approximate (partial) or exact matching via `Config.UseApproximateNameSearch`.
@@ -36,7 +36,7 @@ Contract creators can edit the picture and clues of their contracts or cancel th
 
 ---
 
-## Dependencies
+## 📋 Dependencies
 
 ### Required
 
@@ -62,7 +62,7 @@ Contract creators can edit the picture and clues of their contracts or cancel th
 
 ---
 
-## Installation
+## ⚙️ Installation
 
 1. **Download** the resource from your Cfx.re Keymaster (Granted Assets).
 2. **Extract** it into your resources folder. The folder **must** be named exactly `nexus_bounty`.
@@ -92,7 +92,7 @@ ensure nexus_bounty
 
 ---
 
-## Configuration
+## 🔧 Configuration
 
 All options are in `shared/config.lua` (open file).
 
@@ -137,7 +137,7 @@ Config.PVP = {
 
 ---
 
-## Locales & Editable Strings
+## 🌐 Locales & Editable Strings
 
 | File | Contents |
 |---|---|
@@ -186,7 +186,7 @@ Each locale file has two parts: top-level keys (notifications, map blip) and a `
 
 ---
 
-## Compatibility
+## 🔗 Compatibility
 
 | System | Supported |
 |---|---|
@@ -206,7 +206,7 @@ Each locale file has two parts: top-level keys (notifications, map blip) and a `
 
 ---
 
-## Developer API
+## 💻 Developer API
 
 ### Commands
 
@@ -265,9 +265,9 @@ None. Use the events and the database tables below to integrate.
 |---|---|---|
 | `esx:onPlayerDeath` (ESX) | `source` = victim, `data.killerServerId` (or `data.killerId`) | Extra payout source on ESX. |
 | `QBCore:Server:OnPlayerDeath` (QBCore) | `victimPlayer.source`, `deathData.killerId` | Optional extra payout source. Not emitted by default qb-core and not needed. |
+| `QBCore:Ready` (QBCore) | — | Optional; the script also initialises as soon as `qb-core` is started. |
 
 All payout sources share the same claim: the contract row is deleted first and the reward is only paid if that delete succeeded, so a kill reported twice is never paid twice.
-| `QBCore:Ready` (QBCore) | — | Optional; the script also initialises as soon as `qb-core` is started. |
 
 ### Editable Functions
 
@@ -356,7 +356,7 @@ end
 
 ---
 
-## FAQ
+## ❓ FAQ
 
 **The tablet doesn't open.**
 Check the command in `Config.OpenCommand` (default `/bounty`) and that the framework in `Config.Framework` matches your server.
@@ -390,7 +390,7 @@ No. The only NPC-related code is the developer test command, available only with
 
 ---
 
-## Changelog
+## 📋 Changelog
 
 ### 1.1.0
 - **Fix:** payouts now work out of the box on ESX and QBCore. Kills are detected by the script itself; ESX's `killerServerId` is also read (the old code read a field ESX never sends).
