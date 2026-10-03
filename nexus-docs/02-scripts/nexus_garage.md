@@ -1,6 +1,8 @@
 # Nexus Garage
 
-A complete garage, vehicle-key, impound and vehicle-transfer system for ESX and QBCore, built around a fully custom React NUI and an in-game admin panel that lets you create, place and edit every garage and impound live — without ever touching a config file.
+> A complete garage, vehicle-key, impound and vehicle-transfer system for ESX and QBCore, built around a fully custom React NUI and an in-game admin panel that lets you create, place and edit every garage and impound live — without ever touching a config file.
+
+**Version:** 1.0.0 · **Framework(s):** ESX, QBCore · **Database:** MySQL / MariaDB (oxmysql)
 
 ---
 
