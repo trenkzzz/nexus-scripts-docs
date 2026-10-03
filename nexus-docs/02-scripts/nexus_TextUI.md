@@ -1,6 +1,10 @@
 # Nexus TextUI
 
-A standalone 3D world-anchored TextUI that behaves like a point-based target system: register a point once, and the resource handles distance, the far-away indicator, the prompt and the keypress for you.
+> A point-based 3D world-anchored TextUI — register a point once, and the resource handles distance, the indicator, the prompt and the keypress for you.
+
+**Version:** 1.0.0 · **Type:** Standalone / client-only
+
+---
 
 ## 📝 Description
 
@@ -29,6 +33,8 @@ The NUI itself keeps a `Map` of live DOM elements keyed by interaction id, so an
 - **Built-in test commands** — `/testui` spawns a working interaction point 2 m in front of the player (view 5 m, interact 2 m, key `E`, blocked while in a vehicle) and `/deltestui` removes it, so you can verify the resource end-to-end before integrating.
 - **Smooth enter/exit transitions** — 0.3 s opacity transition on the container, a springy `cubic-bezier(0.175, 0.885, 0.32, 1.275)` scale-in on each box, a `slide-in` entrance, and a 300 ms grace period on removal so elements fade out instead of popping.
 
+---
+
 ## 📋 Dependencies
 
 | Dependency | Required | Notes |
@@ -37,9 +43,11 @@ The NUI itself keeps a `Map` of live DOM elements keyed by interaction id, so an
 | Database / MySQL | ❌ No | No persistence of any kind, no `.sql` file. |
 | `ox_lib` / `qb-target` / `ox_target` | ❌ No | This resource *replaces* the prompt layer of a target system for point-based interactions; it does not build on one. |
 | Server-side script | ❌ None | The resource is **client-only** (`client_scripts` only — there is no `server_script` at all). All registration happens on the client. |
-| Internet access on the client | ⚠️ Soft | `html/index.html` loads the Inter font from Google Fonts, and also pulls Font Awesome from a CDN (unused — see the incident log). Without internet the prompt falls back to the generic sans-serif; nothing breaks. |
+| Internet access on the client | ⚠️ Soft | `html/index.html` loads the Inter font from Google Fonts, and also pulls Font Awesome from a CDN (unused — see the incident log in the FAQ). Without internet the prompt falls back to the generic sans-serif; nothing breaks. |
 
 The resource folder **must** be named exactly `nexus_TextUI` (note the capital `UI`). `client/_resource.lua` raises a hard `error()` and aborts the resource if it is not, because the export namespace `exports['nexus_TextUI']` depends on it.
+
+---
 
 ## ⚙️ Installation
 
@@ -56,6 +64,8 @@ The resource folder **must** be named exactly `nexus_TextUI` (note the capital `
 5. **Restart.** A full server restart is recommended.
 6. **Verify.** In game, run `/testui`. A prompt should appear ~2 m in front of you; back away and it should become a pulsing diamond, then disappear past 5 m. Press `E` while close to get the confirmation notification. Get into a vehicle and it should vanish (that is the demo's `canInteract` predicate). Run `/deltestui` to clean up.
 7. **Integrate.** Register your own points with `exports['nexus_TextUI']:Create{ ... }` from any client script. There is no config file to edit — behaviour is per-point, passed in the `Create` call.
+
+---
 
 ## 🔧 Configuration
 
@@ -91,7 +101,7 @@ LShift LEFTSHIFT LAlt LEFTALT LEFTCTRL RIGHTCTRL
 HOME PAGEUP PAGEDOWN  ,  .  [  ]  ~
 NUM1..NUM9   N4 N5 N6 N7 N8 N9 N+ N- NENTER
 ```
-Note there is no `F4` and no `F12` entry.
+Note there is no `F4` and no `F12` entry. An unrecognised key name is not caught at registration time — it resolves to `nil` and throws inside `IsControlJustPressed` the moment the player walks into `interactionDistance`, so check spelling and case carefully (see the FAQ).
 
 ### Styling
 
@@ -108,6 +118,8 @@ With no config file, the visual identity is changed by editing `html/style.css` 
 | Shimmer sweep speed | `@keyframes shimmer` | `3s` |
 | Fade in/out speed | `.interaction-point` `transition` | `0.3s` |
 | Font | `body` `font-family` | `Inter` (Google Fonts) |
+
+---
 
 ## 🌐 Locales & Editable Strings
 
@@ -126,11 +138,13 @@ With no config file, the visual identity is changed by editing `html/style.css` 
 - `client/_resource.lua` prints in Spanish, and `fxmanifest.lua`'s `description` is in Spanish (`'Sistema de Text UI 3D Standalone y Optimizado'`) while the rest of the catalogue is in English. Reported, not changed.
 - The `/testui` demo strings are hardcoded Spanish inside the escrow (`'PARA LA PRUEBA'`, `'¡La interacción de prueba ha funcionado!'`, `'Punto de prueba creado.'`, `'Punto de prueba eliminado.'`). Reported, not changed — they are developer-facing test commands, but they do ship.
 
+---
+
 ## 🔗 Compatibility
 
 | System | How it integrates |
 |---|---|
-| **Frameworks** | None required, none selected. There is no `Config.Framework`. Job/grade gating is done by the consumer inside its own `canInteract` predicate, which keeps the resource framework-neutral: `canInteract = function() return PlayerData.job and PlayerData.job.name == 'police' end`. |
+| **Frameworks** | None required, none selected. There is no `Config.Framework`. Job/grade gating is done by the consumer inside its own `canInteract` predicate, which keeps the resource framework-neutral: `canInteract = function() return PlayerData.job and PlayerData.job.name == 'police' end`. Works identically on ESX, QBCore, QBox, vRP or a bare server. |
 | **Databases** | None. |
 | **Notification systems** | Not used by this resource. The only notifications it produces are in the `/testui` demo commands, which use the plain GTA natives (`SetNotificationTextEntry` / `DrawNotification`) specifically so the resource stays dependency-free. |
 | **Target resources (`ox_target`, `qb-target`, `bt-target`)** | Can coexist, and the two solve different problems. Use a target resource for interactions tied to *entities* (peds, vehicles, props with bone offsets); use Nexus TextUI for interactions tied to *fixed world coordinates*, which is cheaper and gives you the distance indicator for free. Nothing conflicts — they draw independent NUIs. |
@@ -138,11 +152,13 @@ With no config file, the visual identity is changed by editing `html/style.css` 
 | **Keys / fuel / banking / inventory** | Not used. Any such check belongs in your `canInteract` predicate or your `onInteract` handler. |
 | **Nexus Scripts catalogue** | Other Nexus resources that expose a TextUI branch in their config call `exports['nexus_TextUI']:Create` / `:Delete` from that branch. |
 
+---
+
 ## 💻 Developer API
 
 > This is the section third-party developers integrate against. Everything below was read directly out of `client/main.lua`, `html/script.js` and `fxmanifest.lua`.
 
-### Client Exports
+### Exports
 
 Both exports are **client-side only**. There is no server script in this resource, so there are no server exports.
 
@@ -178,9 +194,7 @@ exports['nexus_TextUI']:Delete('garage_pillbox')
 
 **Overwrite semantics:** calling `Create` again with an id that already exists replaces the stored table outright. That is the supported way to change a point's text, distances, key or predicate — there is no `Update` export. The NUI element is reused, and the new text is picked up on the next 250 ms state pass.
 
-### Server Exports
-
-**None.** `fxmanifest.lua` declares no `server_script` / `server_scripts` entry. If you need to create a point from the server, trigger your own client event and call the export there:
+**Server exports — none.** `fxmanifest.lua` declares no `server_script` / `server_scripts` entry. If you need to create a point from the server, trigger your own client event and call the export there:
 
 ```lua
 -- your server.lua
@@ -216,7 +230,7 @@ end
 
 | Event | Side | Payload | Purpose |
 |---|---|---|---|
-| *(none)* | — | — | The resource registers **no** `RegisterNetEvent` and **no** `AddEventHandler`. It cannot be driven by events, only by its exports. This also means a malicious client cannot make another player's screen show a prompt through this resource. |
+| *(none)* | — | — | The resource registers **no** `RegisterNetEvent` and **no** `AddEventHandler` for gameplay logic. It cannot be driven by events, only by its exports. This also means a malicious client cannot make another player's screen show a prompt through this resource. |
 
 ### Commands
 
@@ -225,7 +239,7 @@ end
 | `/testui` | No | Registers a demo point (`id = 'test_interaction'`) 2 m in front of the player, `viewDistance = 5.0`, `interactionDistance = 2.0`, key `E`, with `canInteract` returning `false` while in a vehicle. |
 | `/deltestui` | No | Deletes `test_interaction`. |
 
-Both are registered unconditionally — there is no `Config.Debug` gate — so **any player on your server can run them**. They only create a point for the caller's own client and cannot affect anyone else, but see the incident log.
+Both are registered unconditionally — there is no `Config.Debug` gate — so **any player on your server can run them**. They only create a point for the caller's own client and cannot affect anyone else, but it does mean the demo commands (and their hardcoded Spanish strings) ship live on every server; see the incident log above.
 
 ### NUI Messages (Lua → JavaScript)
 
@@ -364,6 +378,8 @@ exports['nexus_TextUI']:Create({
 })
 ```
 
+---
+
 ## ❓ FAQ
 
 **I called `Open()` / `Close()` and got a nil error.**
@@ -400,10 +416,13 @@ There is no hard limit. The 250 ms thread is O(number of registered points) and 
 Yes — edit `html/style.css` (`.key-box`, `.text-box`, `.indicator-wrapper::before`). NUI files are plain assets and are never encrypted, so this survives the escrow. There is no config key for it.
 
 **Can I register a point from the server?**
-Not directly — the resource is client-only and has no server exports. Trigger your own client event and call `Create` there (example in the Server Exports section).
+Not directly — the resource is client-only and has no server exports. Trigger your own client event and call `Create` there (example in the Developer API section).
 
 **Does it draw through walls?**
 Yes. The resource uses `GetScreenCoordFromWorldCoord` with no occlusion or raycast check, so a point behind a wall is still visible if the player is within `viewDistance` and facing it. Add your own visibility test in `canInteract` if that matters.
+
+**Can I use it without a framework?**
+Yes. The resource never references ESX, QBCore or any other framework; it is pure client-side Lua plus NUI.
 
 ### Before opening a ticket
 
@@ -414,7 +433,15 @@ Yes. The resource uses `GetScreenCoordFromWorldCoord` with no occlusion or rayca
 - Check F8 for a Lua error from your own `onInteract` / `canInteract` callback — an error thrown inside your callback surfaces as the prompt "not working".
 - Review this FAQ page.
 
+---
+
 ## 📋 Changelog
+
+**Current version: 1.0.0** (`fxmanifest.lua`)
+
+- `1.0.0` — initial release. Point-registry API (`Create` / `Delete`), two-stage proximity rendering (diamond indicator → key + text prompt), distance-based scaling, built-in key handling, `canInteract` predicate, change-gated batched NUI position updates, adaptive render loop, and the `/testui` / `/deltestui` demo commands.
+
+> The known issues listed in the FAQ above — the duplicated key badge/text display, the 250 ms flicker, and the delete-race condition on `onInteract` — are open incidents against this version and are not yet fixed in a released update.
 
 **Current version: 1.0.0** (`fxmanifest.lua`)
 
