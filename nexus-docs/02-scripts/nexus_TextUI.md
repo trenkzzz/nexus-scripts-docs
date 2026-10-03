@@ -442,7 +442,3 @@ Yes. The resource never references ESX, QBCore or any other framework; it is pur
 - `1.0.0` — initial release. Point-registry API (`Create` / `Delete`), two-stage proximity rendering (diamond indicator → key + text prompt), distance-based scaling, built-in key handling, `canInteract` predicate, change-gated batched NUI position updates, adaptive render loop, and the `/testui` / `/deltestui` demo commands.
 
 > The known issues listed in the FAQ above — the duplicated key badge/text display, the 250 ms flicker, and the delete-race condition on `onInteract` — are open incidents against this version and are not yet fixed in a released update.
-
-**Current version: 1.0.0** (`fxmanifest.lua`)
-
-- `1.0.0` — initial release. Point-registry API (`Create` / `Delete`), two-stage proximity rendering (diamond indicator → key + text prompt), distance-based scaling, built-in key handling, `canInteract` predicate, change-gated batched NUI position updates, adaptive render loop, and the `/testui` / `/deltestui` demo commands.
