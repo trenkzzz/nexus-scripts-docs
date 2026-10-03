@@ -1,10 +1,18 @@
 # Nexus Boombox
 
+> A portable, community-style boombox — drop it, stream a YouTube link, and everyone nearby hears it with realistic spatial audio.
+
+**Version:** 1.0.1 · **Framework(s):** Standalone (optional ox_inventory / qb-core / es_extended) · **Database:** None
+
+---
+
+## 📝 Description
+
 Portable, community-style boombox for FiveM. Any player can drop a boombox in the world, paste a YouTube link, and everyone nearby hears it with realistic spatial audio. Whoever places it spends the item; anyone can use it; whoever picks it up gets the item back. Built for roleplay servers where music is a shared favor, not a private possession.
 
 ---
 
-## Features
+## ✨ Features
 
 - **YouTube streaming** – paste any YouTube link (watch, youtu.be or embed) and play it straight from a retro boombox UI.
 - **Spatial audio** – volume falls off logarithmically with distance. Full volume inside `Config.FullVolumeDistance`, silent beyond `Config.MaxDistance`.
@@ -20,7 +28,7 @@ Portable, community-style boombox for FiveM. Any player can drop a boombox in th
 
 ---
 
-## Dependencies
+## 📋 Dependencies
 
 | Resource | Required | Notes |
 |----------|----------|-------|
@@ -33,7 +41,7 @@ No database is used. Boomboxes are not persisted across restarts.
 
 ---
 
-## Installation
+## ⚙️ Installation
 
 1. Drop the `nexus_boombox` folder into your `resources` directory. **The folder must keep the name `nexus_boombox`.**
 2. Add it to your `server.cfg`:
@@ -57,7 +65,7 @@ No database is used. Boomboxes are not persisted across restarts.
 
 ---
 
-## Configuration
+## 🔧 Configuration
 
 All options live in `shared/config.lua`.
 
@@ -81,7 +89,7 @@ All options live in `shared/config.lua`.
 
 ---
 
-## Locales & Editable Strings
+## 🌐 Locales & Editable Strings
 
 Language files are in `locales/` (`en`, `es`, `de`, `fr`, `it`, `pt`, `zh`). Change `Config.Locale` to switch language. To add a language, copy `locales/en.lua`, translate the values and set `Config.Locale` to the new file name (also list the file under `files` in `fxmanifest.lua`).
 
@@ -96,7 +104,7 @@ The UI texts live in `html/index.html` and `html/js/app.js`. They are not encryp
 
 ---
 
-## Compatibility
+## 🔗 Compatibility
 
 - **Game:** FiveM (gta5), `cerulean` manifest.
 - **Server:** OneSync required.
@@ -105,15 +113,15 @@ The UI texts live in `html/index.html` and `html/js/app.js`. They are not encryp
 
 ---
 
-## Developer API
+## 💻 Developer API
 
 ### Exports
 
 This resource does not expose exports.
 
-### Events
+### Events — Emitted
 
-**Client → Server**
+Client → Server:
 
 | Event | Arguments | Description |
 |-------|-----------|-------------|
@@ -126,7 +134,7 @@ This resource does not expose exports.
 | `nexus_boombox:requestAll` | – | Requests the full list of boomboxes. |
 | `nexus_boombox:server:item` | `action ('add'|'remove'), item` | Inventory hook. `add` only works after a valid pickup. |
 
-**Server → Client**
+Server → Client:
 
 | Event | Arguments | Description |
 |-------|-----------|-------------|
@@ -138,7 +146,11 @@ This resource does not expose exports.
 
 `radioData` fields: `url`, `title`, `playing`, `startedAt` (milliseconds, `os.time() * 1000`), `currentTime`, `volume`, `ownerId`, `looped`.
 
-### Functions
+### Events — Listened
+
+Both the client and server listen for their own counterpart of the events above (e.g. the server listens for `nexus_boombox:place`, the client listens for `nexus_boombox:placed`) — there are no additional listened-only events outside this pair.
+
+### Editable Functions
 
 Editable in `client/functions.lua` and `server/functions.lua`.
 
@@ -182,7 +194,7 @@ Custom notify or TextUI: set `Config.NotifySystem = 'custom'` and write your cal
 
 ---
 
-## FAQ
+## ❓ FAQ
 
 **Can only the person who placed the boombox use it?**
 No. It is a community boombox by design. Anyone within range can control it.
@@ -207,9 +219,9 @@ Make sure `Config.Inventory` matches your inventory and the item name matches `C
 
 ---
 
-## Changelog
+## 📋 Changelog
 
-### Unreleased
+### 1.0.1
 - Fixed the progress clock: the server now sends `os.time() * 1000` so the UI and the server use the same clock.
 - Pickup is now validated by player distance.
 - Fixed an item duplication exploit: `nexus_boombox:server:item('add')` now requires a valid pickup.
