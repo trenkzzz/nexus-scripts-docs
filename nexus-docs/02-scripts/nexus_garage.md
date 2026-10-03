@@ -14,7 +14,7 @@ The script supports five garage types — **public**, **private**, **shared**, *
  
 Internally, the resource keeps the framework's own vehicle table as the single source of truth (`owned_vehicles` on ESX, `player_vehicles` on QBCore) and adds its own `garage` and `mileage` columns to it at boot, creating them with `ALTER TABLE` if they're missing. Everything that is *not* native — garages, impound records, keys, per-vehicle metadata (nickname, favourite, parking timestamp), live settings and the audit log — goes into eight dedicated `nexus_*` tables. Vehicles that are physically out in the world are tracked in memory per plate (`Nexus.Vehicles.Out`) with their network id, which is what lets the script tell the difference between *stored*, *out*, *lost* (the entity no longer exists) and *destroyed* (the entity exists but the engine or body is gone) — and charge a recovery fee for the last two instead of leaving the player stranded.
  
-The key system is its own subsystem. Permanent keys are rows in `nexus_keys` and survive restarts; temporary keys live only in a server-side cache and either expire after a configurable number of hours or die with the server. A player taking a car out of a *shared* garage automatically receives a temporary key restricted to that garage, so they can drive it but can only park it back where it came from. With `Config.Systems.Keys = 'nexus'` the script also enforces keys on the engine, handles lock/unlock with a key-fob animation and light flash, and exposes a `/llaves` keyring UI with a live map of your cars on the street. If you'd rather keep your existing key resource, one config line bridges to qb-vehiclekeys, qs-vehiclekeys, cd_garage, okokGarage, t1ger_keys, Renewed-Vehiclekeys or wasabi_carlock instead.
+The key system is its own subsystem. Permanent keys are rows in `nexus_keys` and survive restarts; temporary keys live only in a server-side cache and either expire after a configurable number of hours or die with the server. A player taking a car out of a *shared* garage automatically receives a temporary key restricted to that garage, so they can drive it but can only park it back where it came from. With `Config.Systems.Keys = 'nexus'` the script also enforces keys on the engine, handles lock/unlock with a key-fob animation and light flash, and exposes a `/keys` keyring UI with a live map of your cars on the street. If you'd rather keep your existing key resource, one config line bridges to qb-vehiclekeys, qs-vehiclekeys, cd_garage, okokGarage, t1ger_keys, Renewed-Vehiclekeys or wasabi_carlock instead.
  
 ---
  
@@ -23,7 +23,7 @@ The key system is its own subsystem. Permanent keys are rows in `nexus_keys` and
 - **Five garage types, one system** — `public` (open to all), `private` (one owner, optionally for sale), `shared` (owner + member list), `job` and `gang` (service fleets). Type is chosen in the admin panel, not in code.
 - **In-game garage creation and editing** — a five-to-six step editor (Information → Capacity & costs → Map blip → Interaction point → Spawn points → Service vehicles) with per-section completion checks and a save button that stays disabled until every blocking issue is resolved.
 - **In-world point capture** — pressing "Place in world" hides the UI and drops you into a capture mode with on-screen instructional buttons: a translucent ghost vehicle (or ghost ped for NPC mode) follows you, `E` adds a point, `←`/`→` rotate it, `Backspace` undoes, `Enter` finishes and `Esc`/`Backspace` cancels. Up to 20 spawn points per location; if you're driving, your vehicle's own position and heading are used.
-- **Three interaction modes per point** — floating marker with TextUI, a spawned NPC with a scenario animation, or a target zone (ox_target / qb-target). A point set to `target` silently falls back to marker mode when no target system is configured.
+- **Three interaction modes per point** — floating marker with TextUI, a spawned NPC with a scenario animation, or a target zone (ox_target / qb-target). A point set to `target` silently falls back to marker mode when no target system is configured. With `nexus_TextUI` running, its floating 3D prompt replaces the marker (no marker is drawn on top of it); with any other TextUI the marker is drawn and the 2D prompt appears when you step into the radius.
 - **Fully configurable blips** — searchable sprite picker with ~43 curated game blips plus raw ID entry (0–1000), a 50-colour swatch grid plus raw colour ID (0–85), scale slider and short-range toggle, previewed live on an in-UI Los Santos map.
 - **Marker designer** — 29 marker types with image previews, RGBA colour (preset swatches + custom colour picker), size, opacity, and rotate/bob/face-camera toggles, with an animated approximation of the result.
 - **Vehicle list with list and grid views** — toggle persisted per player in `localStorage`; grid cards show fuel, engine and body condition at a glance, list rows expand into a detail panel.
@@ -41,7 +41,7 @@ The key system is its own subsystem. Permanent keys are rows in `nexus_keys` and
 - **Impound form for officers** — `/impound` (or the `OpenImpoundMenu` export) opens a form over the nearest vehicle: pick the impound, pick a reason from six quick chips or type up to 200 characters, and set the fine with a slider plus numeric input capped at that impound's maximum. Non-networked NPC traffic is simply deleted instead of being recorded.
 - **Impound release** — the owner walks to the impound, sees the reason, the officer's name, the date and the fine, and pays to get the car back. The money goes to the impound's society account through your banking resource. Vehicles of theirs sitting in *other* impounds are listed separately so they know where to go.
 - **Own key system** — permanent keys (database-backed, capped per vehicle) and temporary keys (memory cache, optional expiry in hours). A three-step give-key wizard: pick the vehicle, pick the player (nearby list with distances, or raw server ID), pick the key type, with the permanent-key counter and limit shown.
-- **Keyring UI (`/llaves`)** — three tabs: *Received* (keys others gave you, with remote lock/unlock, GPS marking and a "return key" action), *Given* (keys you handed out, revocable), and *Cars on the street* (your vehicles currently out, with their live coordinates plotted on an interactive, pannable, zoomable map with a distance scale).
+- **Keyring UI (`/keys`)** — three tabs: *Received* (keys others gave you, with remote lock/unlock, GPS marking and a "return key" action), *Given* (keys you handed out, revocable), and *Cars on the street* (your vehicles currently out, with their live coordinates plotted on an interactive, pannable, zoomable map with a distance scale).
 - **Key-fob lock/unlock** — a key mapping (default `L`) plays the GTA key-fob animation with a key prop, flashes the indicators, plays the remote-control sound and toggles the doors on every client within 40 m. Range and server-side distance validation are configurable.
 - **Engine immobiliser** — with `keysRequiredForEngine` on, sitting in the driver's seat of a tracked vehicle you have no key for keeps the engine off and blocks the ignition control, with a one-time notification.
 - **Service vehicle fleets** — job and gang garages hand out vehicles that are *not* owned: each entry has a model (validated live against the client's loaded models), a display label, an optional fixed plate, a minimum grade, a livery index and an optional colour. Vehicles above your grade are shown locked. Taking one starts a cooldown and gives you a temporary key; the vehicle must be returned to the same garage and is deleted on return, not stored.
@@ -53,7 +53,7 @@ The key system is its own subsystem. Permanent keys are rows in `nexus_keys` and
 - **Interactive map, everywhere** — the same map component powers the garage list, the impound list, the blip preview, the editor preview and the keyring street view: a real Los Santos image, world-to-pixel projection from the configured bounds, wheel zoom at the cursor, drag to pan, "fit island" reset, metric scale bar and clickable pins that render the actual blip sprite in the actual blip colour.
 - **Automatic framework detection** — `Config.Framework = 'auto'` detects `es_extended` or `qb-core` at startup and hard-errors with a clear message if neither is present.
 - **Automatic schema setup and legacy migration** — `sql/install.sql` is executed from the resource at every boot (all statements are `CREATE TABLE IF NOT EXISTS`), the native vehicle table is patched with the columns the script needs, and a pre-existing older `nexus_garages` schema is detected and renamed aside instead of breaking.
-- **Seven languages** — `es`, `en`, `de`, `fr`, `it`, `pt`, `zh`, with 86 keys each and an automatic fallback to Spanish for any missing key.
+- **Seven languages** — `es`, `en`, `de`, `fr`, `it`, `pt`, `zh`, with 86 notification/error keys each and an automatic fallback to English for any missing key. The NUI is in English by default and can be translated from the same locale files (see **Locales & Editable Strings**); Spanish ships with the full interface translated.
 - **Resource-name validation** — the resource refuses to start under any folder name other than `nexus_garage`, twice (in `shared/_resource.lua` and again in `shared/framework.lua`).
 ---
  
@@ -137,7 +137,7 @@ The key system is its own subsystem. Permanent keys are rows in `nexus_keys` and
 10. **Start using it.**
     - Walk into a garage marker on foot and press `E` (or use the TextUI/target prompt) to open it.
     - Drive up to a garage and press `E` to store the vehicle you're driving.
-    - `/llaves` opens the keyring, `/impound` opens the impound form (requires a job attached to an impound), `/garageadmin` opens the admin panel.
+    - `/keys` opens the keyring, `/impound` opens the impound form (requires a job attached to an impound), `/garageadmin` opens the admin panel.
     - Default key `L` locks/unlocks the nearest vehicle you hold a key for.
 ---
  
@@ -150,7 +150,7 @@ All build-time configuration lives in `config.lua`, which ships **outside the es
 | Config key | Type | Default | Description |
 |---|---|---|---|
 | `Config.Framework` | string | `'auto'` | `'auto'`, `'esx'` or `'qbcore'`. In `auto` mode the script looks for `es_extended` then `qb-core` and errors out if neither is present. |
-| `Config.Locale` | string | `'es'` | Active language. Must match a file in `locales/`: `es`, `en`, `de`, `fr`, `it`, `pt`, `zh`. Falls back to Spanish per missing key. |
+| `Config.Locale` | string | `'en'` | Active language. Must match a file in `locales/`: `es`, `en`, `de`, `fr`, `it`, `pt`, `zh`. Falls back to English per missing key. Also selects the NUI language and the number/date format used in the interface. |
 | `Config.Debug` | boolean | `false` | Prints `Nexus.Debug(...)` traces to the console and turns on the debug drawing of `ox_target` / `qb-target` zones. Turn it off in production. |
  
 ### `Config.Systems` — external resource bridges
@@ -162,7 +162,7 @@ Every one of these is a plain string; the matching branch in `client/utils.lua`,
 | `Config.Systems.Notify` | string | `'nexus'` | Notification backend: `nexus`, `okok`, `esx`, `qb`, `ox_lib`, `mythic`, `ps-ui`, `custom`. `nexus` calls `exports['nexus_notify']:Alert(title, text, 5000, kind, true)`. If the chosen system isn't running (or is `custom` and `Functions.Notify` does nothing), the script falls back to the native GTA feed ticker so a notification is never silently lost. |
 | `Config.Systems.TextUI` | string | `'nexus'` | Interaction prompt backend: `nexus`, `okok`, `esx`, `qb`, `ox_lib`, `ps-ui`, `native`, `custom`. `nexus` uses `nexus_TextUI`'s `Create(config)` / `Delete(id)` with its own interaction key, so the prompt handles `E` itself; everything else uses the generic `[E] …` help text loop. |
 | `Config.Systems.Target` | string | `'none'` | `none`, `ox_target`, `qb-target`, `custom`. When `none`, any location set to `target` interaction mode silently behaves as a marker, and garage NPCs are interacted with via the proximity prompt instead of being clickable. |
-| `Config.Systems.Keys` | string | `'nexus'` | `nexus`, `qb-vehiclekeys`, `qs-vehiclekeys`, `cd_garage`, `okokGarage`, `t1ger_keys`, `Renewed`, `wasabi_carlock`, `custom`. **Only `'nexus'` enables the built-in keyring, the `L` key mapping and the engine immobiliser** — with any other value `/llaves` and the lock key do nothing, and keys are forwarded to that resource instead when a vehicle spawns. |
+| `Config.Systems.Keys` | string | `'nexus'` | `nexus`, `qb-vehiclekeys`, `qs-vehiclekeys`, `cd_garage`, `okokGarage`, `t1ger_keys`, `Renewed`, `wasabi_carlock`, `custom`. **Only `'nexus'` enables the built-in keyring, the `L` key mapping and the engine immobiliser** — with any other value `/keys` and the lock key do nothing, and keys are forwarded to that resource instead when a vehicle spawns. |
 | `Config.Systems.Fuel` | string | `'LegacyFuel'` | `LegacyFuel`, `ps-fuel`, `ox_fuel`, `cdn-fuel`, `okokGasStation`, `nd_fuel`, `native`, `custom`. Used both to read fuel when storing and to write it when spawning. `ox_fuel` reads/writes the `fuel` entity statebag. Any failure falls back to `GetVehicleFuelLevel` / `SetVehicleFuelLevel`. |
 | `Config.Systems.Banking` | string | `'auto'` | Where impound fines land: `auto`, `esx_addonaccount`, `qb-management`, `qb-banking`, `okokBanking`, `Renewed-Banking`, `custom`. `auto` probes, in order, `Renewed-Banking` → `okokBanking` → `qb-banking` → `qb-management` → `esx_addonaccount` and uses the first one that's started. |
 | `Config.Systems.Gangs` | string | `'qb'` | `qb` (read `PlayerData.gang`, QBCore only), `rcore_gangs` (call `exports['rcore_gangs']:GetPlayerGang(src)`, works on both frameworks), or `none` to disable gang garages entirely. On ESX with `'qb'`, gang resolution always returns nil, so gang garages can never be entered. |
@@ -179,7 +179,7 @@ Every one of these is a plain string; the matching branch in `client/utils.lua`,
 | Config key | Type | Default | Description |
 |---|---|---|---|
 | `Config.Commands.Admin` | string | `'garageadmin'` | Chat command that requests the admin panel. The client only asks the server; the server checks the ACE and replies, so a non-admin gets a "no permission" notification and nothing opens. |
-| `Config.Commands.Keys` | string | `'llaves'` | Chat command that opens the keyring. Does nothing unless `Config.Systems.Keys == 'nexus'`. |
+| `Config.Commands.Keys` | string | `'keys'` | Chat command that opens the keyring. Does nothing unless `Config.Systems.Keys == 'nexus'`. |
 | `Config.Commands.Impound` | string | `'impound'` | Chat command that opens the impound form over the nearest vehicle (within 8 m, or the one you're sitting in). |
 | `Config.AdminAce` | string | `'nexus.garage.admin'` | ACE permission checked with `IsPlayerAceAllowed` for every `admin:*` server callback and for opening the panel. |
 | `Config.LockKey` | string | `'L'` | Default key for the `nexus_garage_lock` key mapping (lock/unlock nearest keyed vehicle). Players can rebind it in the FiveM keybind settings. |
@@ -225,7 +225,9 @@ These are the **initial** values for the 23 settings stored in `nexus_settings` 
 | `Config.CaptureModels.car` | string | `'sultan'` | Ghost model shown while placing **land** spawn points. |
 | `Config.CaptureModels.air` | string | `'frogger'` | Ghost model shown while placing **air** spawn points. |
 | `Config.CaptureModels.sea` | string | `'seashark'` | Ghost model shown while placing **sea** spawn points. For sea points the capture uses the water height instead of the ground height. |
-| `Config.Map.image` | string | `'assets/map.png'` | Path (relative to `html/`) of the Los Santos map image used by every in-UI map. The shipped file is `html/assets/map.png`. |
+| `Config.Map.image` | string | `'assets/map/low.webp'` | Path (relative to `html/`) of the full map image used by every in-UI map (shipped: a 2048×2048 colour atlas, ~200 KB). It is loaded once when the NUI starts, so maps open instantly. |
+| `Config.Map.tiles` | string \| nil | `'assets/map/{x}_{y}.webp'` | Optional high-resolution tiles drawn on top when you zoom in (`{x}` and `{y}` are replaced by the column and row, starting at `0`). The shipped set is the same atlas at 8192×8192 cut into a 4×4 grid (~1.4 MB in total). Tiles are only downloaded when they become visible. Set to `nil` to use only `image`. |
+| `Config.Map.grid` | number | `4` | Number of tile columns/rows in `tiles`. |
 | `Config.Map.minX` | number | `-5661.2` | West edge of the map image in world coordinates. |
 | `Config.Map.maxX` | number | `6694.0` | East edge of the map image in world coordinates. |
 | `Config.Map.minY` | number | `-4058.5` | South edge of the map image in world coordinates. |
@@ -296,8 +298,8 @@ Seven complete translations, each with **86 keys** and byte-for-byte identical k
  
 | File | Language |
 |---|---|
-| `locales/es.lua` | Spanish (fallback language) |
-| `locales/en.lua` | English |
+| `locales/es.lua` | Spanish (includes the full NUI translation) |
+| `locales/en.lua` | English (default and fallback language) |
 | `locales/de.lua` | German |
 | `locales/fr.lua` | French |
 | `locales/it.lua` | Italian |
@@ -308,7 +310,7 @@ Seven complete translations, each with **86 keys** and byte-for-byte identical k
  
 - `locales/_init.lua` just creates the global `Locales` table.
 - `locales/<lang>.lua` each assign `Locales['<lang>'] = { ... }`. **All of these files, and `locales.lua`, ship outside the escrow** (`escrow_ignore` in `fxmanifest.lua` covers `config.lua`, `functions.lua`, `locales.lua`, `locales/*.lua` and `sql/*.sql`), so you can edit every string and add your own language.
-- `locales.lua` defines the `_T(key, ...)` helper. It resolves against `Locales[Config.Locale]`, then against `Locales['es']`, then returns the key itself. Arguments are applied with `string.format` inside a `pcall`, so a translation with a wrong number of `%s` placeholders degrades to the unformatted string instead of erroring.
+- `locales.lua` defines the `_T(key, ...)` helper. It resolves against `Locales[Config.Locale]`, then against `Locales['en']`, then returns the key itself. Arguments are applied with `string.format` inside a `pcall`, so a translation with a wrong number of `%s` placeholders degrades to the unformatted string instead of erroring.
 ### Adding a language
  
 1. Copy `locales/en.lua` to `locales/<code>.lua`.
@@ -319,12 +321,24 @@ Seven complete translations, each with **86 keys** and byte-for-byte identical k
  
 Every server callback failure returns a short code (`garage_full`, `rent_due`, `not_enough_money`, `wrong_class`, …) rather than a sentence. The client translates it at the last moment: `client/nui.lua` wraps every NUI response through `localized()`, which fills `r.message` with `_T(r.error, r.extra)`. All 86 keys are reachable this way, which means every error the player can see is translatable.
  
-### Known gaps
+### Translating the interface (NUI)
  
-Two things are **not** covered by `locales/`:
+The React interface is written in English. Every text it shows goes through a translation table that is sent from Lua when a menu opens, so you translate it from the locale files — no rebuild needed:
  
-1. **The NUI is Spanish-only.** Every label, heading, button, tab, empty state, confirmation text and tooltip in the React interface is a hardcoded Spanish literal inside `web/src/**` and therefore inside the compiled `html/bundle.js`. Only *notification and error text* reaches the UI translated. `html/bundle.js` is not escrow-protected, but it is minified, so translating the interface realistically means rebuilding from the `web/` source (`npm install && npm run build`). This is a limitation to be aware of if you run a non-Spanish server.
-2. **A handful of Spanish strings sit in escrow-protected Lua.** The `L` key-mapping description, the `" (copia)"` suffix added to a duplicated garage's name, the `"Depósito #<id>"` fallback label for a deleted impound, the `"Sistema"` actor name used when a vehicle is impounded by a script instead of a player, and the startup/console error messages are all hardcoded in protected files rather than coming from `locales/`. None of them is player-facing in normal play except the key-mapping description and the duplicate suffix.
+- Each locale file can contain a `ui` table that maps the **English text** to the translation:
+```lua
+Locales['fr'].ui = {
+    ["Take out"] = "Sortir",
+    ["Pay {amount}"] = "Payer {amount}",
+}
+```
+ 
+- Placeholders use `{name}` and must be kept exactly as in the English text.
+- Any text missing from the table is shown in English, so a partial translation never breaks anything.
+- `locales/es.lua` ships with the complete `ui` table (~720 texts) and is the best starting point: copy it, keep the left side, translate the right side.
+- Numbers and dates in the interface follow `Config.Locale` (for example `1,250` in English and `1.250` in Spanish).
+A few fixed strings remain hardcoded in English inside protected Lua: the `L` key-mapping description, the `" (copy)"` suffix added to a duplicated garage's name, the `"Impound #<id>"` fallback label for a deleted impound, the `"System"` actor name used when a vehicle is impounded by a script, and the startup/console messages.
+ 
 ---
  
 ## 🔗 Compatibility
@@ -348,7 +362,7 @@ Selection: `Config.Framework = 'auto' | 'esx' | 'qbcore'`.
  
 `nexus` (`nexus_TextUI`'s `Create(config)` / `Delete(id)` — note the Nexus API is `Create`/`Delete`, not `Open`/`Close`; the config passed includes `id`, `coords`, `viewDistance`, `interactionDistance`, `text`, `key`, `onInteract` and `canInteract`), `okok` (`okokTextUI:Open/Close`), `esx` (`TextUI`/`HideUI`), `qb` (`qb-core:DrawText/HideText`), `ox_lib` (`showTextUI/hideTextUI`), `ps-ui` (`DisplayText/HideText`), `native` / `custom` / anything unavailable → the native `DisplayHelp` loop.
  
-With `nexus_TextUI` the prompt owns the keypress and is suppressed while the NUI is open or while you're in a vehicle or capturing points. With every other system the script draws its own `[E] …` prompt and reads `Config.InteractKey` itself.
+With `nexus_TextUI` the prompt owns the keypress and is suppressed while the NUI is open or while you're in a vehicle or capturing points; in marker mode its floating 3D text **replaces** the marker, so no marker is drawn. If `nexus_TextUI` is started or stopped while the server is running, every point is rebuilt automatically (falling back to marker + prompt when it's gone). With every other system the script draws the configured marker, shows its own `[E] …` prompt and reads `Config.InteractKey` itself.
  
 ### Target — `Config.Systems.Target`
  
@@ -876,7 +890,7 @@ This resource requires **oxmysql**, not mysql-async. It loads `@oxmysql/lib/MySQ
 **`/garageadmin` does nothing.**
 The command only asks the server; the server checks `IsPlayerAceAllowed(src, Config.AdminAce)` and replies with a "no permission" notification if you fail. Add the ACE: `add_ace group.admin nexus.garage.admin allow`, and make sure your identifier is actually in that group. ACE changes need a server restart or a `refresh`/`restart` of the resource that owns them.
  
-**`/llaves` does nothing and the `L` key doesn't work.**
+**`/keys` does nothing and the `L` key doesn't work.**
 Both are gated on `Config.Systems.Keys == 'nexus'`. If you've pointed the script at qb-vehiclekeys, qs-vehiclekeys, cd_garage or any other key resource, the built-in keyring, the key mapping and the engine immobiliser are all disabled on purpose, because that resource owns keys now.
  
 **`/impound` says my job can't use any impound.**
@@ -910,7 +924,7 @@ Yes for all 23 settings: they're saved to the database, mirrored into `GlobalSta
 They are fetched from `docs.fivem.net` and `docs-backend.fivem.net`, so the game client needs internet access, and addon vehicles will never have an image there. The UI degrades gracefully (a drawn silhouette for vehicles, a coloured badge with the sprite ID for blips). To use your own images, implement `Functions.VehicleImage(model)` in `functions.lua` and return a `nui://` URL to your own image pack.
  
 **The map in the UI says the map image is missing.**
-Check that `html/assets/map.png` exists and that `Config.Map.image` matches its path relative to `html/`. The file ships with the resource and is large; make sure your file transfer didn't skip or truncate it. If you replace the image, update `Config.Map.minX/maxX/minY/maxY` to its real world bounds or every pin will be misplaced.
+Check that `html/assets/map/low.webp` (and the `0_0.webp` … `3_3.webp` tiles next to it) exist and that `Config.Map.image` / `Config.Map.tiles` match their paths relative to `html/`. If you replace the map with your own style, export it as a square image covering the same area, set `tiles = nil` if you don't cut it into tiles, and update `Config.Map.minX/maxX/minY/maxY` to its real world bounds or every pin will be misplaced.
  
 **Mileage doesn't go up.**
 Distance is only accumulated when you are the **driver** and `HasKey(plate)` is true for that vehicle, and the per-report cap is 50 km. Service vehicles and vehicles you hold no key for don't accumulate. With a non-`nexus` key system the local key cache is still filled on spawn, so your own vehicles do count.
