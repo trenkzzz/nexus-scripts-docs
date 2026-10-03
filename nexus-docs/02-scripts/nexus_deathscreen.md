@@ -1,9 +1,17 @@
 # Nexus Deathscreen
 
-## Description
+> Immersive unconscious and death screens with a live heart monitor, death camera and medic call system for ESX & QBCore.
+
+**Version:** 2.2.0 · **Framework(s):** ESX, QBCore · **Database:** None
+
+---
+
+## 📝 Description
 Custom unconscious and death screens for ESX and QBCore. When a player goes down, an unconscious screen with a live heart monitor counts down, then switches to a WASTED screen with a cause of death, a respawn timer and a medic call system. Includes an optional orbiting death camera.
 
-## Features
+---
+
+## ✨ Features
 - Unconscious screen with countdown, heart animation, BPM and ECG that react to the remaining time
 - WASTED screen in two phases: waiting for medical response, then forced or manual respawn
 - Cause of death text based on weapon category and body zone
@@ -15,18 +23,24 @@ Custom unconscious and death screens for ESX and QBCore. When a player goes down
 - 7 languages: es, en, de, fr, it, pt, zh
 - No database usage
 
-## Dependencies
+---
+
+## 📋 Dependencies
 - ESX (`esx_ambulancejob`) or QBCore (`qb-core`, `qb-ambulancejob`), selected in the config
 - No database required
 
-## Installation
+---
+
+## ⚙️ Installation
 1. Drop the `nexus_deathscreen` folder into `resources`. The folder name must stay exactly `nexus_deathscreen`.
 2. Add `ensure nexus_deathscreen` to `server.cfg` after your framework and ambulance resources.
 3. Set `Config.Framework` and `Config.Locale` in `shared/config.lua`.
 4. Make your ambulance script trigger the events listed in the Developer API.
 5. Sync the timers (see Configuration) and restart.
 
-## Configuration
+---
+
+## 🔧 Configuration
 `shared/config.lua`:
 
 | Option | Default | Description |
@@ -47,7 +61,9 @@ Custom unconscious and death screens for ESX and QBCore. When a player goes down
 
 Supported key names for the three key options: letters, digits, `F1` to `F11`, arrows, `SPACE`, `ENTER`, `TAB`, `BACKSPACE`, `LSHIFT`, `LCTRL`, `LALT`, `HOME`, `PAGEUP`, `PAGEDOWN`, `DELETE` and a few symbols. Invalid names print a console warning and fall back to the default (G for respawn and unconscious help, H for the death medic call).
 
-## Locales & Editable Strings
+---
+
+## 🌐 Locales & Editable Strings
 Texts live in `locales/<lang>.lua` and are not encrypted. Every file has the same keys:
 
 - Screen texts: `unconscious_title`, `unconscious_wait`, `death_title`, `death_reason_default`, `phase1_msg`, `phase2_msg`, `phase2_hint`, `help_hint`, `help_sent`
@@ -58,14 +74,21 @@ Texts live in `locales/<lang>.lua` and are not encrypted. Every file has the sam
 
 `%s` is the key and `%d` is the seconds, so keep them in your edits. To add a language, copy `en.lua`, rename it and change `Locales['en']`.
 
-## Compatibility
+---
+
+## 🔗 Compatibility
 - ESX with `esx_ambulancejob`
 - QBCore with `qb-ambulancejob`
 - Escrow: `shared/config.lua`, `shared/functions.lua`, `locales.lua`, `locales/*.lua` and the NUI files are excluded. The client and server logic is encrypted.
 
-## Developer API
+---
 
-### Client events (listened by this resource)
+## 💻 Developer API
+
+### Exports
+None.
+
+### Events — Listened
 ```lua
 TriggerEvent('nexus_deathscreen:client:unconscious')
 TriggerEvent('nexus_deathscreen:client:death')
@@ -75,17 +98,17 @@ TriggerEvent('nexus_deathscreen:client:revive')
 - `death` shows the WASTED screen directly.
 - `revive` closes the screen.
 
-### Events emitted by this resource
+### Events — Emitted
 - `nexus_deathscreen:client:onTransitionToDead` (client, local): fired when the unconscious screen turns into the death screen.
 - `nexus_deathscreen:server:onDeath` (server): the player is now officially dead.
 - `nexus_deathscreen:server:doRespawn` (server): the player asked to respawn.
 - `nexus_deathscreen:client:doSpawn` (client): resurrects the local player at `coords` (`x`, `y`, `z`, `heading`).
 
-### Hooks in `shared/functions.lua`
-`OnHelpKeyPressed`, `OnDeadHelpCallTriggered`, `OnRespawnTriggered`, `OnRespawnDone`, `OnPlayerDeath`, `OnPlayerRevived`, `DoServerRespawn`. Edit them to connect other ambulance or dispatch scripts. ESX uses `esx_ambulancejob:onPlayerDistress`; QBCore uses `hospital:server:ambulanceAlert` with the localized alert texts.
+### Editable Functions
+Hooks in `shared/functions.lua`: `OnHelpKeyPressed`, `OnDeadHelpCallTriggered`, `OnRespawnTriggered`, `OnRespawnDone`, `OnPlayerDeath`, `OnPlayerRevived`, `DoServerRespawn`. Edit them to connect other ambulance or dispatch scripts. ESX uses `esx_ambulancejob:onPlayerDistress`; QBCore uses `hospital:server:ambulanceAlert` with the localized alert texts.
 
-### Schema SQL
-Not applicable.
+### Database Schema
+None.
 
 ### Integration Example
 ```lua
@@ -98,7 +121,9 @@ RegisterNetEvent('hospital:client:Revive', function()
 end)
 ```
 
-## FAQ
+---
+
+## ❓ FAQ
 **My keys do nothing.** Use a key name from the supported list. Check the console for an invalid-key warning.
 
 **I was revived and went down again, but could not call for help.** Fixed in 2.2.0: the call counters now reset when the screen closes.
@@ -109,7 +134,9 @@ end)
 
 **Does it need a database?** No.
 
-## Changelog
+---
+
+## 📋 Changelog
 ### 2.2.0
 - `Config.HelpKey`, `Config.UnconsciousHelpCall.key` and `Config.DeadHelpCall.key` now control the real keys through a key lookup table.
 - Locale keys `critical` and `seconds_label` are now applied in the UI.
