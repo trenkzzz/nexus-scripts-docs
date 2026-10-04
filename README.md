@@ -1,4 +1,8 @@
-# 👋 Welcome to Nexus Scripts's Docs
+---
+icon: hand-wave
+---
+
+# Welcome to Nexus Scripts's Docs
 
 Welcome to the official **Nexus Scripts** documentation! Here you'll find everything you need to install, configure, and get the most out of our premium scripts for FiveM.
 

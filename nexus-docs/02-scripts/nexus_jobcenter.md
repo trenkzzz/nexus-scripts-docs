@@ -1,10 +1,14 @@
+---
+icon: briefcase
+---
+
 # Nexus Jobcenter
 
 > A job centre for FiveM where players browse, apply for and switch between server jobs from a custom NUI.
 
 **Version:** N/A · **Status:** In development
 
----
+***
 
 ## 📝 Description
 
@@ -14,56 +18,55 @@
 
 More information will be shared as development progresses.
 
----
+***
 
 ## ✨ Features
 
 To be documented once the script is feature-complete.
 
----
+***
 
 ## 📋 Dependencies
 
 To be documented once the script is feature-complete.
 
----
+***
 
 ## ⚙️ Installation
 
 To be documented once the script is feature-complete.
 
----
+***
 
 ## 🔧 Configuration
 
 To be documented once the script is feature-complete.
 
----
+***
 
 ## 🌐 Locales & Editable Strings
 
 To be documented once the script is feature-complete.
 
----
+***
 
 ## 🔗 Compatibility
 
 To be documented once the script is feature-complete.
 
----
+***
 
 ## 💻 Developer API
 
 To be documented once the script is feature-complete.
 
----
+***
 
 ## ❓ FAQ
 
-**Q: Is this script available yet?**
-A: No — it is still in the development phase. This page will be filled in with the full gold-standard documentation (Features, Dependencies, Installation, Configuration, Locales, Compatibility, Developer API, FAQ, Changelog) once the script ships.
+**Q: Is this script available yet?** A: No — it is still in the development phase. This page will be filled in with the full gold-standard documentation (Features, Dependencies, Installation, Configuration, Locales, Compatibility, Developer API, FAQ, Changelog) once the script ships.
 
----
+***
 
 ## 📋 Changelog
 

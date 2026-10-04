@@ -1,4 +1,8 @@
-# 🔄 Updates
+---
+icon: rotate
+---
+
+# Updates
 
 ## 📦 How to update a script
 

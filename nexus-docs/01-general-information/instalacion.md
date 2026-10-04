@@ -3,9 +3,10 @@ description: >-
   On this page, you'll learn how to install most of our resources, take into
   account that some of our systems may have special needs so revise each
   script's docs carefully!
+icon: gears
 ---
 
-# ⚙️ Installation & Compatibility
+# Installation & Compatibility
 
 ## 📥 Universal Installation
 

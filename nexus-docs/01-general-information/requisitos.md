@@ -1,4 +1,8 @@
-# 📋 General Requirements
+---
+icon: clipboard-list
+---
+
+# General Requirements
 
 Before obtaining any nexus resource, ensure you meet these minimal requirements .
 

@@ -1,4 +1,8 @@
-# 📜 Terms of Service (ToS)
+---
+icon: scale-balanced
+---
+
+# Terms of Service (ToS)
 
 ## 🔑 License
 

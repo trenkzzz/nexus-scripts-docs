@@ -1,4 +1,8 @@
-# ❓ Frequently Asked Questions
+---
+icon: comments-question
+---
+
+# Frequently Asked Questions
 
 **Q: Are the scripts compatible with ESX & QBcore?** A: Yes,all of our resources are either standalone or fully compatible with both frameworks, just select yours in `config.lua`.
 

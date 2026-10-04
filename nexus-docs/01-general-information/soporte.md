@@ -1,4 +1,8 @@
-# 💬 Support
+---
+icon: headset
+---
+
+# Support
 
 ## 🎫 How to ask for help
 
