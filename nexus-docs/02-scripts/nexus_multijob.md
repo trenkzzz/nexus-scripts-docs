@@ -14,7 +14,7 @@ icon: buildings
 
 Nexus Multijob gives every player a personal, persistent job roster. Instead of losing a police grade when taking a taxi shift, the player keeps every job in a list and swaps the active one from a side panel opened with a single key. The roster size is limited per server and can be raised for specific players. The active job cannot be deleted, and going off duty is a single click.
 
-The roster fills itself. The resource listens to the job-change events of your framework, so every time a player receives a job from any resource (job centers, MDT, admin commands), that job with its grade and labels is saved in the `nexus_multijob` table. No integration work is needed in your existing job scripts. A player whose current job predates the installation gets it saved automatically the first time the panel is opened.
+The roster fills itself. On ESX the resource listens to the job-change events of the framework, so every time a player receives a job from any resource (job centers, MDT, admin commands), that job with its grade and labels is saved in the `nexus_multijob` table. On QBCore the job a player logs in with is saved on login, and the current job is saved every time the panel is opened. No integration work is needed in your existing job scripts.
 
 The grade applied when switching is always the grade stored on the server, never the value sent by the client, so the panel cannot be used to self-promote.
 
@@ -23,7 +23,7 @@ The grade applied when switching is always the grade stored on the server, never
 ## Features
 
 * Personal job roster stored in the database, with job and grade labels.
-* Automatic capture of jobs on login and on every job change, for ESX and QBCore.
+* Automatic capture of jobs on login and on job changes.
 * Switch the active job from the panel, with the grade stored for that job.
 * Delete jobs from the roster with a confirmation step. The active job cannot be deleted.
 * Optional off-duty button that sets the unemployed job.
@@ -79,7 +79,7 @@ Everything is in `config.lua`, which is not encrypted.
 | `Config.Framework`        | string  | `'esx'`        | `'esx'` or `'qbcore'`.                                                                                                                   |
 | `Config.Theme`            | string  | `'purple'`     | Panel color theme: `purple`, `orange`, `green`, `red`, `blue`, `gold`.                                                                   |
 | `Config.OpenKey`          | string  | `'F5'`         | Default key. Players can rebind it in the FiveM key bindings settings.                                                                   |
-| `Config.MaxJobs`          | number  | `6`            | Default maximum number of jobs per player. Values above 6 are not recommended because the panel layout is designed for up to six cards.  |
+| `Config.MaxJobs`          | number  | `6`            | Default maximum number of jobs per player. Six is the recommended maximum for the panel layout.                                          |
 | `Config.MaxJobsOverrides` | table   | `{}`           | Different maximum for specific players. The key is the player identifier.                                                                |
 | `Config.AllowOffDuty`     | boolean | `true`         | Shows the off-duty button and allows switching to the unemployed job.                                                                    |
 | `Config.UnemployedJob`    | string  | `'unemployed'` | Job name used when going off duty. This job is never stored in the roster. The panel also uses this name to detect an unemployed player. |
@@ -166,12 +166,12 @@ To add a language, copy `locales/en.lua` to `locales/<code>.lua`, change the key
 
 ## Compatibility
 
-| System                        | Behavior                                                                                                                                                       |
-| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ESX                           | Uses `esx:setJob` and `esx:playerLoaded` to fill the roster, `xPlayer.setJob` to switch and the `admin` / `superadmin` groups for `/njgive`.                   |
-| QBCore                        | Uses `QBCore:Server:PlayerLoaded` and `QBCore:Server:SetJob` to fill the roster, `Player.Functions.SetJob` to switch and the `admin` permission for `/njgive`. |
-| Job centers, MDT, admin menus | Any resource that assigns jobs through the framework is captured automatically.                                                                                |
-| Notifications                 | Selected with `Config.NotifyStyle`.                                                                                                                            |
+| System                        | Behavior                                                                                                                                                                                                                                                                        |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ESX                           | Uses `esx:setJob` and `esx:playerLoaded` to fill the roster, `xPlayer.setJob` to switch and the `admin` / `superadmin` groups for `/njgive`.                                                                                                                                    |
+| QBCore                        | Uses `QBCore:Server:PlayerLoaded` to save the login job, `Player.Functions.SetJob` to switch and the `admin` permission for `/njgive`. Jobs assigned during the session are saved when the player opens the panel while holding that job. See the FAQ to save them immediately. |
+| Job centers, MDT, admin menus | On ESX, any resource that assigns jobs through the framework is captured automatically.                                                                                                                                                                                         |
+| Notifications                 | Selected with `Config.NotifyStyle`.                                                                                                                                                                                                                                             |
 
 ***
 
@@ -179,7 +179,7 @@ To add a language, copy `locales/en.lua` to `locales/<code>.lua`, change the key
 
 ### Exports
 
-The resource does not declare client or server exports. To open or close the panel from another resource use the command:
+The resource declares no client or server exports. To open or close the panel from another resource use the command:
 
 ```lua
 ExecuteCommand('nexus_jobs')
@@ -224,12 +224,12 @@ Commands executed from the server through `ExecuteCommand` run with console perm
 
 ### Framework events listened
 
-| Framework | Event                        | Purpose                                                                                  |
-| --------- | ---------------------------- | ---------------------------------------------------------------------------------------- |
-| ESX       | `esx:setJob`                 | Saves the new job in the roster.                                                         |
-| ESX       | `esx:playerLoaded`           | Saves the job the player logs in with.                                                   |
-| QBCore    | `QBCore:Server:SetJob`       | Saves the new job in the roster. Server-side handler, it cannot be triggered by clients. |
-| QBCore    | `QBCore:Server:PlayerLoaded` | Saves the job the player logs in with.                                                   |
+| Framework | Event                        | Purpose                                                                                                                                              |
+| --------- | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ESX       | `esx:setJob`                 | Saves the new job in the roster.                                                                                                                     |
+| ESX       | `esx:playerLoaded`           | Saves the job the player logs in with.                                                                                                               |
+| QBCore    | `QBCore:Server:SetJob`       | Saves the new job in the roster. Server-side handler, it cannot be triggered by clients. Trigger it from your server code to save a job immediately. |
+| QBCore    | `QBCore:Server:PlayerLoaded` | Saves the job the player logs in with.                                                                                                               |
 
 The unemployed job is never saved. When a job already exists in the roster, its grade and labels are updated. When the roster is full, a new job is not added.
 
@@ -274,7 +274,7 @@ The identifier is the ESX `identifier` or the QBCore citizen id. There is one ro
 
 ## FAQ
 
-**A job is missing from the panel.** Jobs are saved when the player receives them. If a player had the job before the resource was installed, it is saved when they open the panel with that job active. Other old jobs can be added with `/njgive`.
+**A job is missing from the panel.** Jobs are saved when the player receives them (ESX) or logs in with them. A job that the player already holds is also saved when they open the panel. Other old jobs can be added with `/njgive`.
 
 **A player received a job but it was not added.** The roster is full. Raise `Config.MaxJobs` or add a player entry in `Config.MaxJobsOverrides`.
 
@@ -292,7 +292,7 @@ The identifier is the ESX `identifier` or the QBCore citizen id. There is one ro
 
 **How do I change the panel texts?** Edit `html/index.html` and `html/script.js`.
 
-**I use QBCore and jobs assigned by another resource are not captured.** The resource listens to `QBCore:Server:SetJob` on the server. If your job-change resource does not trigger that event, trigger it after changing the job: `TriggerEvent('QBCore:Server:SetJob', source, jobName, grade)`.
+**On QBCore, how do I save a job assigned by another resource immediately?** Trigger the event from the server right after changing the job: `TriggerEvent('QBCore:Server:SetJob', source, jobName, grade)`.
 
 ### Before opening a ticket
 
