@@ -4,24 +4,24 @@ icon: box-isometric
 
 # Scripts
 
-Here you will find all the Nexus Scripts resources. All compatible with **ESX** y **QBCore**, and with the **Modular Compatibility System** fully integrated, see [⚙️ Instalación y Compatibilidad](../01-general-information/instalacion.md) for more info.
+Here you will find all the Nexus Scripts resources. Most of them support **ESX** and **QBCore** and include the **Modular Compatibility System**. See [Installation & Compatibility](../01-general-information/instalacion.md) for more information.
 
-| Script                                              | Short Description                                         |
-| --------------------------------------------------- | --------------------------------------------------------- |
-| [🔊 Nexus Boombox](nexus_boombox.md)                | Portable radio to play in-world music with spatial audio. |
-| [🎯 Nexus Bounty](../../02-scripts/nexus-bounty.md) | Bounty and player hunting system                          |
-| [📻 Nexus CarRadio](nexus_carradio.md)              | In-car radio system.                                      |
-| [🕒 Nexus Clocking](nexus_clocking.md)              | Clock-in and clock-out system for jobs                    |
-| [💀 Nexus DeathScreen](nexus_deathscreen.md)        | Death screen and player health status system.             |
-| [🅿️ Nexus Garage](nexus_garage.md)                 | Complete and advanced garage system.                      |
-| [🚚 Nexus Deliveryjob](nexus_deliveryjob.md)        | Package deliverer job.                                    |
-| [🤖 Nexus Helpcenter](nexus_helpcenter.md)          | AI-powered support assistant for your server.             |
-| [💼 Nexus Jobcenter](nexus_jobcenter.md)            | Advanced server employment center                         |
-| [⛏️ Nexus Minerjob](nexus_minerjob.md)              | Miner job system.                                         |
-| [🧰 Nexus Multijob](nexus_multijob.md)              | Multijob system.                                          |
-| [🔔 Nexus Notify](nexus_notify.md)                  | Custom and optimized notify system.                       |
-| [🖥️ Nexus TextUI](nexus_TextUI.md)                 | Custom and optimized TextUI system.                       |
+| Script                                    | Framework      | Description                                                          |
+| ----------------------------------------- | -------------- | -------------------------------------------------------------------- |
+| [Nexus Boombox](nexus_boombox.md)         | ESX, QBCore    | Portable boombox that plays your own audio with spatial sound.       |
+| [Nexus Bounty](nexus_bounty.md)           | ESX, QBCore    | Bounty and player hunting system.                                    |
+| [Nexus CarRadio](nexus_carradio.md)       | ESX, QBCore    | In-car radio with playlists and a shared queue.                      |
+| [Nexus Clocking](nexus_clocking.md)       | In development | Clock-in and clock-out system for jobs.                              |
+| [Nexus DeathScreen](nexus_deathscreen.md) | ESX, QBCore    | Death screen and player health status system.                        |
+| [Nexus Garage](nexus_garage.md)           | ESX, QBCore    | Complete and advanced garage system.                                 |
+| [Nexus Deliveryjob](nexus_deliveryjob.md) | ESX            | Package delivery job with progression, employees and a vehicle shop. |
+| [Nexus Helpcenter](nexus_helpcenter.md)   | Standalone     | Help center with an AI-powered assistant.                            |
+| [Nexus Jobcenter](nexus_jobcenter.md)     | In development | Advanced server employment center.                                   |
+| [Nexus Minerjob](nexus_minerjob.md)       | ESX            | Mining job with levels, furnaces, markets and random events.         |
+| [Nexus Multijob](nexus_multijob.md)       | ESX, QBCore    | Multiple jobs per player with a job switching panel.                 |
+| [Nexus Notify](nexus_notify.md)           | Standalone     | Customizable notification system.                                    |
+| [Nexus TextUI](nexus_TextUI.md)           | Standalone     | World-anchored interaction prompts.                                  |
 
 {% hint style="info" %}
-Looking for a non-existent resource? Check the store's roadmap or ask for it in Discord.
+Looking for a resource that is not listed? Check the store roadmap or ask for it on Discord.
 {% endhint %}

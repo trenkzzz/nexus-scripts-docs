@@ -4,31 +4,31 @@ icon: clipboard-list
 
 # General Requirements
 
-Before obtaining any nexus resource, ensure you meet these minimal requirements .
+Before getting any Nexus Scripts resource, make sure you meet these minimum requirements.
 
-## ✅ Basical Requirements
+## Basic requirements
 
-| Requirement      | Detail                                               |
-| ---------------- | ---------------------------------------------------- |
-| Framework        | ESX Legacy o QBCore (the newest version posible)     |
-| Server's Version | Recent FXserver build.                               |
-| Portal Account   | Having a valid cfx.re account.                       |
-| License          | Hold a genuine script license bought from our tebex. |
+| Requirement    | Detail                                                                                         |
+| -------------- | ---------------------------------------------------------------------------------------------- |
+| Framework      | ESX Legacy or QBCore, in the newest version possible. Some scripts are ESX only or standalone. |
+| Server version | A recent FXServer build.                                                                       |
+| Portal account | A valid cfx.re account.                                                                        |
+| License        | A genuine script license bought from our Tebex store.                                          |
 
-## 🔌 Frequent Dependecies
+## Common dependencies
 
-Most of our scripts have dependecies, apart from the standalone ones:
+Most of our scripts have dependencies, apart from the standalone ones:
 
-* Framework: **ESX** o **QBCore**
-* Notify (recommended `nexus_notify`, `okokNotify`, `ESX`, `mythic_notify`...)
-* TextUI (recommended `nexus_TextUI`, `okokTextUI`, `ESX`...)
-* Target (`ox_target`, `qb-target`...) — may vary from script to script.
-* `oxmysql` on every script that manage databases.
+* Framework: **ESX** or **QBCore**.
+* Notifications: `nexus_notify` is recommended. `okokNotify`, ESX and `mythic_notify` are also supported by most scripts.
+* Text prompts: `nexus_TextUI` is recommended. `okokTextUI` and ESX are also supported by most scripts.
+* Target: `ox_target`, `qb-target` or `qtarget`, depending on the script.
+* `oxmysql` on every script that uses a database.
 
 {% hint style="warning" %}
-Always check the **Requirements** section on each script's page — some resources are mandatory, while others are completely optional thanks to our modular compatibility system.
+Always check the dependencies section of each script's page. Some resources are mandatory and others are optional thanks to the modular compatibility system.
 {% endhint %}
 
-## 🧩 Compatibility Philosophy
+## Compatibility philosophy
 
-All Nexus Scripts are designed with maximum modularity: you can choose which system you want to use for notifications, TextUI, garage, etc., simply by changing an option in `config.lua`, often without having to touch any code functions. See [⚙️ Installation & Compatibility](instalacion.md) for more details.
+All Nexus Scripts are designed to be modular. You can choose the system used for notifications, text prompts, keys and more by changing an option in the configuration file, often without touching any code. See [Installation & Compatibility](instalacion.md) for more details.

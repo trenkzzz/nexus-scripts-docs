@@ -4,28 +4,28 @@ icon: scale-balanced
 
 # Terms of Service (ToS)
 
-## 🔑 License
+## License
 
-When you purchase any script from Nexus Scripts, you receive a **license to use** it on a **single** FiveM server, not ownership of the source code. The following are strictly prohibited:
+When you purchase a script from Nexus Scripts, you receive a **license to use** it on a **single** FiveM server, not ownership of the source code. The following are strictly prohibited:
 
-* Reselling, redistributing, or sharing the script, in whole or in part.
+* Reselling, redistributing or sharing the script, in whole or in part.
 * Removing or attempting to bypass the escrow system.
-* Publishing the code, leaking it, or uploading it to public repositories.
+* Publishing the code, leaking it or uploading it to public repositories.
 
-Any leakage or unauthorized use, will be met with the pertinent **DMCA** claim and a report in the cfx.re ecosystem, apart from any other available method.
+Any leak or unauthorized use will be met with the relevant **DMCA** claim and a report in the cfx.re ecosystem, in addition to any other available measure.
 
-## 💳 Purchases & Billing
+## Purchases and billing
 
-The purchases are handled via **Tebex**, applying their Terms of Service appart from the ones from Nexus Scripts.
+Purchases are handled through **Tebex**. Their Terms of Service apply in addition to those of Nexus Scripts.
 
-## ↩️ Returns
+## Returns
 
-Currently, refunds are not offered on fulfilled purchases, as these are digital goods with immediate access.
+Refunds are not offered on fulfilled purchases, as these are digital goods with immediate access.
 
-## 🧾 Included Support
+## Included support
 
-Technical support for purchased scripts is included in the purchase price and is managed through the official Discord. (Not including free scripts)
+Technical support for purchased scripts is included in the purchase price and is managed through the official Discord. Free scripts are not included.
 
-## 🤝 Partnership
+## Partnership
 
 Nexus Scripts is open to collaborating with other servers and developers. If you are interested, contact us through our official Discord.

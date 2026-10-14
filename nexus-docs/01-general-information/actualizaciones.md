@@ -4,26 +4,26 @@ icon: rotate
 
 # Updates
 
-## 📦 How to update a script
+## How to update a script
 
-1. Download the **latest** version through the **cfx.re portal.**
-2. Make a **security copy** of your actual version, so you can **migrate** your `config.lua` and/or other parameters.
-3. Replace **all** the files of the script and then migrate your previous customizations to the pertinent files.
-4. Check the script's changelog in case there are new options you may find interesting.
-5. If the resource/server is running, restart it so it settles correctly (We recommend **restarting the whole server** to guarantee a correct installation).
+1. Download the **latest** version from the **cfx.re portal**.
+2. Make a **backup copy** of your current version so you can migrate your `config.lua` and any other files you customized.
+3. Replace **all** the files of the script, then migrate your previous customizations to the new files.
+4. Read the script's documentation page in case there are new options you may want to use.
+5. If the resource is running, restart it. We recommend restarting the whole server to guarantee a correct installation.
 
 {% hint style="info" %}
-Revise all the new features and/or configs or the script so you can get it running **the fastest way possible**
+Review the new features and configuration options of the script so you can get it running as fast as possible.
 {% endhint %}
 
-## 🗓️ Updates Frequency
+## Update frequency
 
-We try to publish updates and new scripts frequently but the updates/new developments volume totally depends on how occupied are we. The public Nexus Scripts roadmap is available for you to see what we're working on and what's coming soon.
+We publish updates and new scripts regularly. The volume depends on our workload. The public Nexus Scripts roadmap shows what we are working on and what is coming soon.
 
-## 🏷️ Changelog
+## Versioning
 
-We use simple semantic versioning (`MAJOR.MINOR.PATCH`):
+Scripts use simple semantic versioning (`MAJOR.MINOR.PATCH`):
 
-* **MAJOR** — Major changes that may require reconfiguration.
-* **MINOR** — New features, backward-compatible with previous versions.
-* **PATCH** — Bug fixes.
+* **MAJOR**: major changes that may require reconfiguration.
+* **MINOR**: new features, backward compatible with previous versions.
+* **PATCH**: bug fixes.

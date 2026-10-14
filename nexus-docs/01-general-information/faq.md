@@ -4,18 +4,18 @@ icon: comments-question
 
 # Frequently Asked Questions
 
-**Q: Are the scripts compatible with ESX & QBcore?** A: Yes,all of our resources are either standalone or fully compatible with both frameworks, just select yours in `config.lua`.
+**Are the scripts compatible with ESX and QBCore?** Most of them are. Each script page lists its supported frameworks, and the [script list](../02-scripts/) shows them in one table. Nexus Deliveryjob and Nexus Minerjob are ESX only. Nexus Notify, Nexus TextUI and Nexus Helpcenter are standalone. For scripts that support both frameworks, select yours in `config.lua`.
 
-**Q: Can I use my own TextUI/Notify/Garage...System?** A: Yes. Almost every scripts comes preconfigured with the most popular systems but you can add your's in `functions.lua` .Look how to do it in [⚙️ Installation & Compatibility](instalacion.md).
+**Can I use my own TextUI, notification or garage system?** Yes. Almost every script comes preconfigured with the most popular systems, and you can add yours in `functions.lua`. See [Installation & Compatibility](instalacion.md).
 
-**Q: Los scripts tienen escrow?** A: Sí, todos los scripts de Nexus Scripts usan el sistema de escrow oficial de FiveM (cfx.re) como protección anti-filtración.
+**Do the scripts use escrow?** Yes. All Nexus Scripts use the official FiveM escrow system (cfx.re) as protection against leaks. Configuration, functions, locales and interface files are left unencrypted so you can customize them.
 
-**Q: I bought the script but I get an error on startup, what should I do?** A: First, make sure the folder name matches the original resource name exactly — this is the most common cause. If the error persists check the script's docs and if it hasn't dissapeared contact support on Discord and provide the exact console error.
+**I bought the script but I get an error on startup. What should I do?** First, make sure the folder name matches the original resource name exactly, since this is the most common cause. If the error persists, read the script's page and, if it is still not solved, contact support on Discord with the exact console error.
 
-**Q: Do you take returns?** A: At the moment we do not accept returns, if you have any problem or doubt feel free to reach us at our Discord. Check[📜 Terms of Service (ToS)](terminos.md) for more information.
+**Do you offer refunds?** At the moment we do not accept returns. If you have any problem or question, reach us on Discord. See the [Terms of Service](terminos.md) for more information.
 
-**Q: Can I resell, share or leak the script?** A: No. **It's strictly forbidden**, any leak or break of this clause will result in **inmediate ban** and a **DMCA lawsuit**. More info on [📜 Terms of Service (ToS)](terminos.md).
+**Can I resell, share or leak the script?** No. It is strictly forbidden. Any leak or breach of this clause results in an immediate ban and a DMCA claim. More information in the [Terms of Service](terminos.md).
 
-**Q: Are there any free scripts?** A: At the moment we don't have any free scripts, we might include some in the future. Free scripts owners are not entitled to support from our team.
+**Are there any free scripts?** At the moment we do not have free scripts. Owners of free scripts are not entitled to support from our team.
 
-**Q: Can I ask for a new feature in an existing resource?** A: Yes, you are free to share new ideas in the store's Discord. We will take them into account and if they seem promising we will try to add them when possible.
+**Can I ask for a new feature in an existing resource?** Yes. Share your ideas on the store's Discord. We take them into account and add the promising ones when possible.
