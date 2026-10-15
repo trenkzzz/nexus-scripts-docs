@@ -1,3 +1,7 @@
+---
+icon: shop
+---
+
 # Nexus Vehicleshop
 
 > A cinematic vehicle dealership for ESX, QBCore and Qbox: a 3D showroom with its own camera, hardened test drives, server-side prices and plates, real-time financing with offline payments and repossession, player-run dealerships with employees and a society account, sell-back with a pre-owned market, and verified delivery into nexus\_garage or the garage resource your server already uses.
