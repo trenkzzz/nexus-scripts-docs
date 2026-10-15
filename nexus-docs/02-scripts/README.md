@@ -13,7 +13,7 @@ Here you will find all the Nexus Scripts resources. Most of them support **ESX**
 | [Nexus CarRadio](nexus_carradio.md)                        | ESX, QBCore       | In-car radio with playlists and a shared queue.                                          |
 | [Nexus Clocking](nexus_clocking.md)                        | In development    | Clock-in and clock-out system for jobs.                                                  |
 | [Nexus DeathScreen](nexus_deathscreen.md)                  | ESX, QBCore       | Death screen and player health status system.                                            |
-| [Nexus Garage](nexus_garage.md)                            | ESX, QBCore       | Complete and advanced garage system.                                                     |
+| [Nexus Garage](../../02-scripts/nexus_garage/)             | ESX, QBCore       | Complete and advanced garage system.                                                     |
 | [Nexus Deliveryjob](nexus_deliveryjob.md)                  | ESX               | Package delivery job with progression, employees and a vehicle shop.                     |
 | [Nexus Helpcenter](nexus_helpcenter.md)                    | Standalone        | Help center with an AI-powered assistant.                                                |
 | [Nexus Jobcenter](nexus_jobcenter.md)                      | In development    | Advanced server employment center.                                                       |
