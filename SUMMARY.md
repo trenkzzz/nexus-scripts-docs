@@ -9,6 +9,7 @@
   * [Support](nexus-docs/01-general-information/soporte.md)
   * [Terms of Service (ToS)](nexus-docs/01-general-information/terminos.md)
 * [Scripts](nexus-docs/02-scripts/README.md)
+  * [Nexus Banking](02-scripts/nexus-banking.md)
   * [Nexus Boombox](nexus-docs/02-scripts/nexus_boombox.md)
   * [Nexus Bounty](nexus-docs/02-scripts/nexus_bounty.md)
   * [Nexus CarRadio](nexus-docs/02-scripts/nexus_carradio.md)
