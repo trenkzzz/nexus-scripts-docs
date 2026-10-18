@@ -19,6 +19,7 @@
   * [Nexus Deliveryjob](nexus-docs/02-scripts/nexus_deliveryjob.md)
   * [Nexus Garage](02-scripts/nexus_garage/README.md)
     * [Integration API (1.0.1)](02-scripts/nexus_garage/integration-api-1.0.1.md)
+    * [Update 1.0.2](02-scripts/nexus_garage/update-1.0.2.md)
   * [Nexus Vehicleshop](02-scripts/nexus-vehicleshop/README.md)
     * [nexus\_banking Integration](02-scripts/nexus-vehicleshop/nexus_banking-integration.md)
   * [Nexus Helpcenter](nexus-docs/02-scripts/nexus_helpcenter.md)
