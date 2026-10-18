@@ -33,7 +33,7 @@ For servers coming from another bank, the resource ships **compatibility folders
     * conditional `UPDATE ... WHERE balance >= ?`;
     * per-account locks, one request at a time per player and idempotent requests.
 
-    See [Security](nexus-banking.md#security).
+    See [Security](./#security).
 * **Credit score** (300-850):
   * six weighted factors and five tiers;
   * daily and weekly caps on how fast it can rise, plus anti-farming rules;
@@ -119,7 +119,7 @@ For servers coming from another bank, the resource ships **compatibility folders
 1. **Download** the resource from the cfx.re portal (Keymaster) and drop it into your `resources` folder.
 2. **Keep the folder name exactly `nexus_banking`.** The resource validates its own name and stops otherwise.
 3. **Remove or stop your previous bank** (qb-banking, Renewed-Banking, okokBanking, esx\_banking...). Two banks must never run at the same time.
-4. **Optional compatibility**: copy the folders you need from `nexus_banking/compat/` (for example `compat/qb-banking`) into your resources. See [Compatibility](nexus-banking.md#compatibility).
+4. **Optional compatibility**: copy the folders you need from `nexus_banking/compat/` (for example `compat/qb-banking`) into your resources. See [Compatibility](./#compatibility).
 5. **server.cfg order** (the bank must start before nexus\_vehicleshop):
 
 ```
@@ -230,7 +230,7 @@ How it works:
 | `late`                     | 60 min, 5 %, 2, 3                     | `graceMinutes` to retry a failed charge, `feePercent`, missed instalments in a row before the score drops (`scoreDropAt`), missed instalments before default (`maxMissed`).                                                                      |
 | `prepay`                   |                                       | `allowed`, `partial`, `feePercent` (1), `minPartial` (500), `mode` (`reduce_installment` or `reduce_term`).                                                                                                                                      |
 | `seizure`                  |                                       | `vehicle` mode (`custody`, `impound`, `delete`, `stock`, `event`), `custodyOwner`, `stockDealership`, `property` (`adapter` or `event`), `onAssetLost` (`accelerate`, `default`, `flag`).                                                        |
-| `vehicleShop`              |                                       | See [Vehicle financing](nexus-banking.md#vehicle-financing-with-nexus_vehicleshop).                                                                                                                                                              |
+| `vehicleShop`              |                                       | See [Vehicle financing](./#vehicle-financing-with-nexus_vehicleshop).                                                                                                                                                                            |
 
 `Config.Collateral`:
 

@@ -20,14 +20,34 @@ The list and every permission are checked by nexus\_banking on the server. Accou
 
 ### Financing through the bank
 
-1. The shop asks the bank for the buyer's terms: credit tier, extra interest and minimum down payment.
+1. The shop asks the bank for the buyer's terms: credit tier, extra interest, minimum down payment, the monthly instalments the bank still lets them take on, and the room left in the bank's daily lending limit.
 2. The plan shown to the buyer is the dealership plan adjusted for that tier. The quote and the bank loan use the same formula, so the numbers always match.
 3. The bank checks affordability and reserves the loan. The shop takes the down payment and delivers the car.
 4. Only after a successful delivery is the loan activated. If delivery fails, the loan is cancelled and the buyer gets the down payment back.
 5. From then on the **bank is the source of truth**: it charges every instalment (online or offline), applies late fees, updates the credit score and handles default.
 6. The shop's finance row keeps a link to the loan (`bank_loan_id`) and follows it: instalments paid, loan paid off, car released or repossessed.
 
-If the bank refuses (blocked tier, not affordable, previous default), the purchase is refused with the reason. The shop does **not** fall back to its own financing.
+If the bank refuses, the purchase is refused with the exact reason (see below). The shop does **not** fall back to its own financing.
+
+### What the buyer sees before paying
+
+* A note with the monthly amount the bank lets them take on. If the chosen plan costs more per month, it turns into a warning that suggests a bigger down payment or a longer plan.
+* A **How financing works** button that opens a short modal: what the bank lends, how the credit score sets rate and down payment, the income check, the vehicle as collateral and repossession.
+
+### Refusal messages
+
+| Cause                               | Message                                                                 |
+| ----------------------------------- | ----------------------------------------------------------------------- |
+| Credit score in a blocked tier      | Your credit score (value) is too low for financing.                     |
+| A loan in default                   | You have a loan in default.                                             |
+| Instalments too high for the income | The bank only lets you take on the amount shown more per month.         |
+| Down payment below the minimum      | The minimum down payment for your credit score is the amount shown.     |
+| Bank daily lending limit reached    | The bank has reached its daily lending limit, try again tomorrow.       |
+| Bank reserve without funds          | The bank does not have enough funds to lend right now.                  |
+| Vehicle already pledged             | This vehicle is pledged as collateral for a bank loan.                  |
+| Terms changed during checkout       | Your financing terms changed, check the new offer.                      |
+| Bank not running                    | The bank is not available right now.                                    |
+| Anything else                       | The bank could not process the financing, with an error code to report. |
 
 ### Dealer payout
 
@@ -37,6 +57,10 @@ If the bank refuses (blocked tier, not affordable, previous default), the purcha
 | `upfront`                          | The down payment plus the full financed amount at the sale.                                         |
 
 Staff can't finance a car through the bank at their own dealership.
+
+### Credit history
+
+Opening a dealership financing and paying it off both appear in the buyer's credit history in the bank. Events the anti-farming rules don't count are shown as **No impact**.
 
 ### Missed payments and repossession
 
@@ -69,6 +93,8 @@ A car that backs a loan can't be sold back to the dealership. Players also can't
 | `minDownByTier`                            | poor 35, fair 20, others 0                              | Minimum down payment (%) by tier. The higher of this and the plan's minimum wins.        |
 | `blockedTiers`                             | `{}`                                                    | Tiers that can't finance, for example `{ poor = true }`.                                 |
 
+The bank's `Config.Lending.dailyServerCap` also applies to dealership financing.
+
 {% hint style="warning" %}
 Updating with `Config.Systems.Banking = 'auto'`: dealership company accounts now live in nexus\_banking. If you had dealership money in esx\_addonaccount or qb-management, move it with `/bankaudit migrate <source>` or set `Config.Systems.Banking` explicitly.
 {% endhint %}
@@ -97,12 +123,12 @@ Existing loans created before the update keep running on the shop's own financin
 
 ## 🌐 Locales & Editable Strings
 
-New keys in all 7 languages:
+New keys:
 
-* the `bank_*` errors and labels;
+* the `bank_*` errors and labels, including `bank_daily_cap`, `bank_no_liquidity` and `bank_finance_failed`;
 * `credit_tier_*`;
-* `invalid_account`, `vehicle_pledged`, `bank_self_finance`, `bank_affordability`;
-* the `ui` key `pay_from`.
+* `invalid_account`, `vehicle_pledged`, `bank_self_finance`, `bank_affordability`, `down_too_low`;
+* the `ui` keys `pay_from`, `fin_guide*`, `bank_capacity` and `bank_capacity_warn`.
 
 The bank integration lives in `bridge/server/banking.lua`, outside the escrow.
 
@@ -122,7 +148,7 @@ The shop listens to these nexus\_banking events for loans with `origin = 'vehicl
 | `nexus_banking:server:onLoanMissed`  | Updates the missed count and calls `Functions.OnFinanceMissed`.          |
 | `nexus_banking:server:onLoanPaid`    | Releases the car (respects the redeem rules for repossessed cars).       |
 
-Useful nexus\_banking exports: `GetVehicleFinanceTerms`, `GetEffectivePlan`, `GetLoanByRef('vehicleshop', plate)`, `PayLoan`, `GetPaymentAccounts`, `Charge`, `Refund`, `HasLien('vehicle', plate)`. See the [Nexus Banking](../nexus-banking.md) page.
+Useful nexus\_banking exports: `GetVehicleFinanceTerms` (now also returns `capacity` and `room`), `GetEffectivePlan`, `GetLoanByRef('vehicleshop', plate)`, `PayLoan`, `GetPaymentAccounts`, `Charge`, `Refund`, `HasLien('vehicle', plate)`. `ReserveVehicleLoan` returns `nil, errorKey, extra` on failure. See the [Nexus Banking](../nexus-banking/) page and [Help, guide and multiple collateral](../nexus-banking/help-guide-and-multiple-collateral.md).
 
 ***
 
@@ -130,7 +156,7 @@ Useful nexus\_banking exports: `GetVehicleFinanceTerms`, `GetEffectivePlan`, `Ge
 
 **The shop still uses its own financing.** Check that nexus\_banking starts first, `Config.Modules.loans` is on in the bank, and `Config.BankIntegration.finance` is `true`. `/vshop diag` tells you which step fails.
 
-**A buyer is refused with "bank" errors.** Their credit tier is blocked, the instalments don't fit their income, or they have a defaulted loan. The message says which.
+**A buyer is refused with "bank" errors.** The message names the cause: blocked credit tier, instalments too high for their income, a defaulted loan, a down payment below the minimum, or the bank's daily limit or reserve. See the table above.
 
 **The dealership only got the down payment.** That's `installments` mode: the rest arrives with every instalment. Switch to `upfront` in nexus\_banking if you prefer, after funding the reserve.
 

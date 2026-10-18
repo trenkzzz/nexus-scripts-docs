@@ -8,7 +8,7 @@ Here you will find all the Nexus Scripts resources. Most of them support **ESX**
 
 | Script                                                   | Framework         | Description                                                                                              |
 | -------------------------------------------------------- | ----------------- | -------------------------------------------------------------------------------------------------------- |
-| [Nexus Banking](../../02-scripts/nexus-banking.md)       | ESX, QBCore, Qbox | Secure banking with shared, business and savings accounts, ATMs, cards, bills and drop-in compatibility. |
+| [Nexus Banking](../../02-scripts/nexus-banking/)         | ESX, QBCore, Qbox | Secure banking with shared, business and savings accounts, ATMs, cards, bills and drop-in compatibility. |
 | [Nexus Boombox](nexus_boombox.md)                        | ESX, QBCore       | Portable boombox that plays your own audio with spatial sound.                                           |
 | [Nexus Bounty](nexus_bounty.md)                          | ESX, QBCore       | Bounty and player hunting system.                                                                        |
 | [Nexus CarRadio](nexus_carradio.md)                      | ESX, QBCore       | In-car radio with playlists and a shared queue.                                                          |
