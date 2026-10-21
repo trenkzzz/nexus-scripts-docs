@@ -27,3 +27,17 @@ Here you will find all the Nexus Scripts resources. Most of them support **ESX**
 {% hint style="info" %}
 Looking for a resource that is not listed? Check the store roadmap or ask for it on Discord.
 {% endhint %}
+
+## Get the scripts
+
+These scripts are available on the Nexus Scripts website, where you can see screenshots, requirements and prices:
+
+* [FiveM garage script for ESX and QBCore](https://nexus-scripts.net/scripts/garage/)
+* [FiveM bounty hunter script for ESX and QBCore](https://nexus-scripts.net/scripts/bounty/)
+* [FiveM death screen script for ESX and QBCore](https://nexus-scripts.net/scripts/death-screen/)
+* [FiveM multijob script for ESX and QBCore](https://nexus-scripts.net/scripts/multi-job/)
+* [FiveM delivery job script for ESX](https://nexus-scripts.net/scripts/delivery-job/)
+* [FiveM notify script for any framework](https://nexus-scripts.net/scripts/notify/)
+* [FiveM text UI script for any framework](https://nexus-scripts.net/scripts/text-ui/)
+
+Browse them by framework: [FiveM ESX scripts](https://nexus-scripts.net/fivem-esx-scripts/) or [FiveM QBCore scripts](https://nexus-scripts.net/fivem-qbcore-scripts/).

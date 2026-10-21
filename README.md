@@ -25,3 +25,5 @@ Nexus Scripts are protected by the official FiveM escrow system (cfx.re). The pr
 ### About Nexus Scripts
 
 We build scripts designed to last: modular, easy to configure and compatible with the most widely used systems in the community (ESX, QBCore, notification systems, text prompts, vehicle keys and more), so they fit into your server without friction.
+
+Looking for scripts? See the [FiveM ESX scripts](https://nexus-scripts.net/fivem-esx-scripts/) and [FiveM QBCore scripts](https://nexus-scripts.net/fivem-qbcore-scripts/) from Nexus Scripts.
